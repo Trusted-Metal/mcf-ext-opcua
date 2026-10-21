@@ -1,0 +1,53 @@
+name: Release
+
+# main publishes rc pre-releases, release publishes stable versions.
+# Consumers: Node takes the .tgz release asset; Rust takes the git tag (vX.Y.Z).
+on:
+  push:
+    branches:
+      - main
+      - release
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # semantic-release needs full git history
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install release tooling
+        run: npm ci
+
+      - name: Install library dependencies
+        run: npm ci
+        working-directory: nodejs
+
+      # Gate: never tag a version whose tests fail.
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: nodejs
+
+      - name: Test
+        run: npm test
+        working-directory: nodejs
+
+      - name: Configure deploy key for git push
+        env:
+          RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+        run: bash .github/scripts/configure-deploy-key-git.sh
+
+      - name: Run semantic-release
+        run: npx semantic-release --repository-url "${SEMANTIC_RELEASE_REPOSITORY_URL}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HUSKY: "0"

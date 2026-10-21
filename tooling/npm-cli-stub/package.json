@@ -1,0 +1,7 @@
+{
+  "name": "npm",
+  "version": "12.0.2",
+  "private": true,
+  "description": "Local stub replacing the full npm CLI package pulled in by @semantic-release/npm, so this repo does not vendor npm's bundled deps. Runtime still uses the system npm on PATH; this package has no bin or code.",
+  "license": "UNLICENSED"
+}

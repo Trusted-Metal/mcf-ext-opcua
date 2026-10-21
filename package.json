@@ -1,0 +1,28 @@
+{
+  "name": "mcf-ext-opcua-workspace",
+  "version": "0.1.0-rc.1",
+  "description": "Release tooling root for mcf-ext-opcua (not published)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync-version": "node scripts/sync-version.mjs",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^11.0.0",
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^9.0.0",
+    "@semantic-release/npm": "^13.1.5",
+    "@semantic-release/release-notes-generator": "^12.0.0",
+    "husky": "^9.0.0",
+    "npm": "file:tooling/npm-cli-stub",
+    "semantic-release": "^25.0.8"
+  },
+  "overrides": {
+    "npm": "$npm"
+  }
+}
