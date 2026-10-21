@@ -1,0 +1,147 @@
+{
+  "attrs": {
+    "Opcua_Schema_Version": { "dtype": "utf8", "value": "1.2" },
+    "Root_Extra": { "dtype": "utf8", "value": "kept" }
+  },
+  "children": {
+    "Client": {
+      "attrs": {
+        "Auth_Mode": { "dtype": "utf8", "value": "UsernamePassword" },
+        "BFS_Max_Depth": { "dtype": "u32", "value": 8 },
+        "Client_Extra_I64": { "dtype": "i64", "value": "-42" },
+        "Keep_Alive_Count": { "dtype": "u32", "value": 100 },
+        "Lifetime_Count": { "dtype": "u32", "value": 1000 },
+        "Machine_Profile": { "dtype": "utf8", "value": "Eos" },
+        "Publish_Interval": { "dtype": "u32", "value": 500 },
+        "Queue_Policy": { "dtype": "utf8", "value": "KeepOldest" },
+        "Queue_Size_Data_Change": { "dtype": "u32", "value": 50 },
+        "Queue_Size_Events": { "dtype": "u32", "value": 7200 },
+        "Reconnect_Interval": { "dtype": "u32", "value": 5000 },
+        "Root_Node": { "dtype": "utf8", "value": "ns=2;s=Machine" },
+        "Sampling_Interval": { "dtype": "i32", "value": 0 },
+        "Security_Mode": { "dtype": "utf8", "value": "SignAndEncrypt" },
+        "Security_Policy": { "dtype": "utf8", "value": "ECC_nistP256" },
+        "Server_URL": { "dtype": "utf8", "value": "opc.tcp://10.0.0.5:62541/Server" },
+        "Session_Timeout": { "dtype": "u32", "value": 30000 },
+        "Sync_Loop_Interval_Initial": { "dtype": "u32", "value": 500 },
+        "Sync_Loop_Interval_Settled": { "dtype": "u32", "value": 15000 }
+      },
+      "children": {},
+      "datasets": {}
+    },
+    "Pipe": {
+      "attrs": {
+        "Buffer_Size": { "dtype": "u32", "value": 131072 },
+        "Configure_Client": { "dtype": "u32", "value": 1 },
+        "Inbound_Rate_Limit": { "dtype": "i32", "value": 200 },
+        "Max_Inbound_Message_Size": { "dtype": "u32", "value": 8192 },
+        "Min_Integrity_Level": { "dtype": "utf8", "value": "Medium" },
+        "Pipe_Enabled": { "dtype": "u32", "value": 1 },
+        "Pipe_Extra_Array": { "dtype": "i32", "value": [1, 2, 3] },
+        "Pipe_Name": { "dtype": "utf8", "value": "\\\\.\\pipe\\custom_pipe" },
+        "User_Access_Level": { "dtype": "utf8", "value": "AnyLocalUser" }
+      },
+      "children": {},
+      "datasets": {}
+    },
+    "Trigger": {
+      "attrs": {
+        "Trigger_Extra": { "dtype": "f64", "value": 1.5 },
+        "Trigger_Stop_Ceiling_Layers": { "dtype": "u32", "value": 5 },
+        "Triggers_Enabled": { "dtype": "u32", "value": 1 }
+      },
+      "children": {
+        "Job Start": {
+          "attrs": {
+            "Action": { "dtype": "utf8", "value": "CaptureStart" },
+            "Combinator": { "dtype": "utf8", "value": "And" },
+            "Cooldown_Period": { "dtype": "u32", "value": 500 },
+            "Description": { "dtype": "utf8", "value": "Start capture when the laser is on and oxygen is high" },
+            "Max_Fires_Per_Job": { "dtype": "u32", "value": 3 },
+            "Priority": { "dtype": "u32", "value": 2 },
+            "Rule_Enabled": { "dtype": "u32", "value": 1 },
+            "Rule_Extra": { "dtype": "utf8", "value": "rule-level" },
+            "Rule_Id": { "dtype": "u32", "value": 1 },
+            "Rule_Label": { "dtype": "utf8", "value": "Job Start" }
+          },
+          "children": {
+            "Laser On": {
+              "attrs": {
+                "Case_Sensitivity": { "dtype": "utf8", "value": "ContainsCaseSensitive" },
+                "Comparison_Operator": { "dtype": "utf8", "value": "Equal" },
+                "Component": { "dtype": "utf8", "value": "laser::1" },
+                "Condition_Enabled": { "dtype": "u32", "value": 1 },
+                "Condition_Id": { "dtype": "u32", "value": 1 },
+                "Condition_Label": { "dtype": "utf8", "value": "Laser On" },
+                "Epsilon": { "dtype": "f64", "value": 0 },
+                "Evaluation_Mode": { "dtype": "utf8", "value": "String" },
+                "Event": { "dtype": "utf8", "value": "StateEvents" },
+                "Signal": { "dtype": "utf8", "value": "laser_state" },
+                "Subsystem": { "dtype": "utf8", "value": "Laser" },
+                "Value": { "dtype": "utf8", "value": "Emitting" }
+              },
+              "children": {},
+              "datasets": {}
+            },
+            "Oxygen High": {
+              "attrs": {
+                "Case_Sensitivity": { "dtype": "utf8", "value": "Exact" },
+                "Comparison_Operator": { "dtype": "utf8", "value": "GreaterThan" },
+                "Component": { "dtype": "utf8", "value": "" },
+                "Cond_Extra": { "dtype": "u64", "value": "18446744073709551615" },
+                "Condition_Enabled": { "dtype": "u32", "value": 0 },
+                "Condition_Id": { "dtype": "u32", "value": 2 },
+                "Condition_Label": { "dtype": "utf8", "value": "Oxygen High" },
+                "Epsilon": { "dtype": "f64", "value": 0.25 },
+                "Evaluation_Mode": { "dtype": "utf8", "value": "Numeric" },
+                "Event": { "dtype": "utf8", "value": "" },
+                "Signal": { "dtype": "utf8", "value": "oxygen_level" },
+                "Subsystem": { "dtype": "utf8", "value": "Gas" },
+                "Value": { "dtype": "utf8", "value": "700.5" }
+              },
+              "children": {},
+              "datasets": {}
+            }
+          },
+          "datasets": {}
+        },
+        "Job Stop": {
+          "attrs": {
+            "Action": { "dtype": "utf8", "value": "CaptureStop" },
+            "Combinator": { "dtype": "utf8", "value": "" },
+            "Cooldown_Period": { "dtype": "u32", "value": 0 },
+            "Description": { "dtype": "utf8", "value": "" },
+            "Max_Fires_Per_Job": { "dtype": "u32", "value": 0 },
+            "Priority": { "dtype": "u32", "value": 0 },
+            "Rule_Enabled": { "dtype": "u32", "value": 0 },
+            "Rule_Id": { "dtype": "u32", "value": 2 },
+            "Rule_Label": { "dtype": "utf8", "value": "Job Stop" }
+          },
+          "children": {
+            "Laser Off": {
+              "attrs": {
+                "Case_Sensitivity": { "dtype": "utf8", "value": "Exact" },
+                "Comparison_Operator": { "dtype": "utf8", "value": "Equal" },
+                "Component": { "dtype": "utf8", "value": "" },
+                "Condition_Enabled": { "dtype": "u32", "value": 1 },
+                "Condition_Id": { "dtype": "u32", "value": 1 },
+                "Condition_Label": { "dtype": "utf8", "value": "Laser Off" },
+                "Epsilon": { "dtype": "f64", "value": 0 },
+                "Evaluation_Mode": { "dtype": "utf8", "value": "String" },
+                "Event": { "dtype": "utf8", "value": "" },
+                "Signal": { "dtype": "utf8", "value": "laser_state" },
+                "Subsystem": { "dtype": "utf8", "value": "" },
+                "Value": { "dtype": "utf8", "value": "Off" }
+              },
+              "children": {},
+              "datasets": {}
+            }
+          },
+          "datasets": {}
+        }
+      },
+      "datasets": {}
+    }
+  },
+  "datasets": {}
+}

@@ -1,0 +1,101 @@
+{
+  "client": {
+    "serverUrl": "opc.tcp://10.0.0.5:62541/Server",
+    "authMode": "UsernamePassword",
+    "machineProfile": "Eos",
+    "securityMode": "SignAndEncrypt",
+    "securityPolicy": "ECC_nistP256",
+    "rootNode": { "kind": "NodeId", "value": "ns=2;s=Machine" },
+    "samplingInterval": { "kind": "Fastest" },
+    "publishInterval": 500,
+    "bfsMaxDepth": 8,
+    "keepAliveCount": 100,
+    "lifetimeCount": 1000,
+    "queuePolicy": "KeepOldest",
+    "queueSizeDataChange": 50,
+    "queueSizeEvents": 7200,
+    "reconnectInterval": 5000,
+    "sessionTimeout": 30000,
+    "syncLoopIntervalInitial": 500,
+    "syncLoopIntervalSettled": 15000,
+    "extra": { "Client_Extra_I64": { "dtype": "i64", "value": "-42" } }
+  },
+  "pipe": {
+    "enabled": true,
+    "configureClient": true,
+    "bufferSize": 131072,
+    "inboundRateLimitHz": 200,
+    "maxInboundMessageSize": 8192,
+    "minIntegrityLevel": "Medium",
+    "pipeName": "\\\\.\\pipe\\custom_pipe",
+    "userAccessLevel": "AnyLocalUser",
+    "extra": { "Pipe_Extra_Array": { "dtype": "i32", "value": [1, 2, 3] } }
+  },
+  "triggers": {
+    "enabled": true,
+    "stopCeilingLayers": 5,
+    "rules": [
+      {
+        "id": 1,
+        "label": "Job Start",
+        "description": "Start capture when the laser is on and oxygen is high",
+        "action": "CaptureStart",
+        "combinator": "And",
+        "enabled": true,
+        "priority": 2,
+        "cooldownMs": 500,
+        "maxFiresPerJob": 3,
+        "conditions": [
+          {
+            "id": 1,
+            "label": "Laser On",
+            "enabled": true,
+            "event": "StateEvents",
+            "subsystem": "Laser",
+            "component": "laser::1",
+            "signal": "laser_state",
+            "evaluation": { "mode": "String", "value": "Emitting", "caseSensitivity": "ContainsCaseSensitive" },
+            "extra": {}
+          },
+          {
+            "id": 2,
+            "label": "Oxygen High",
+            "enabled": false,
+            "event": "",
+            "subsystem": "Gas",
+            "component": "",
+            "signal": "oxygen_level",
+            "evaluation": { "mode": "Numeric", "threshold": 700.5, "operator": "GreaterThan", "epsilon": 0.25 },
+            "extra": { "Cond_Extra": { "dtype": "u64", "value": "18446744073709551615" } }
+          }
+        ],
+        "extra": { "Rule_Extra": { "dtype": "utf8", "value": "rule-level" } }
+      },
+      {
+        "id": 2,
+        "label": "Job Stop",
+        "description": "",
+        "action": "CaptureStop",
+        "enabled": false,
+        "priority": 0,
+        "cooldownMs": 0,
+        "conditions": [
+          {
+            "id": 1,
+            "label": "Laser Off",
+            "enabled": true,
+            "event": "",
+            "subsystem": "",
+            "component": "",
+            "signal": "laser_state",
+            "evaluation": { "mode": "String", "value": "Off", "caseSensitivity": "Exact" },
+            "extra": {}
+          }
+        ],
+        "extra": {}
+      }
+    ],
+    "extra": { "Trigger_Extra": { "dtype": "f64", "value": 1.5 } }
+  },
+  "extra": { "Root_Extra": { "dtype": "utf8", "value": "kept" } }
+}

@@ -1,0 +1,160 @@
+{
+  "client": {
+    "serverUrl": "opc.tcp://172.17.20.240:62541/TM_OPCUA_DevTemplate_V0.1/TelemetryServer",
+    "authMode": "UsernamePassword",
+    "machineProfile": "Aconity",
+    "securityMode": "SignAndEncrypt",
+    "securityPolicy": "ECC_brainpoolP384r1",
+    "rootNode": {
+      "kind": "BrowseName",
+      "value": "MachineFleet"
+    },
+    "samplingInterval": {
+      "kind": "Ms",
+      "ms": 250
+    },
+    "publishInterval": 250,
+    "bfsMaxDepth": 16,
+    "keepAliveCount": 240,
+    "lifetimeCount": 2400,
+    "queuePolicy": "DiscardOldest",
+    "queueSizeDataChange": 100,
+    "queueSizeEvents": 7200,
+    "reconnectInterval": 10000,
+    "sessionTimeout": 60000,
+    "syncLoopIntervalInitial": 1000,
+    "syncLoopIntervalSettled": 30000,
+    "extra": {}
+  },
+  "pipe": {
+    "enabled": true,
+    "configureClient": true,
+    "bufferSize": 65536,
+    "maxInboundMessageSize": 65536,
+    "minIntegrityLevel": "Medium",
+    "pipeName": "\\\\.\\pipe\\opc_ua_client_pipe",
+    "userAccessLevel": "AnyLocalUser",
+    "extra": {}
+  },
+  "triggers": {
+    "enabled": true,
+    "stopCeilingLayers": 3,
+    "rules": [
+      {
+        "id": 1,
+        "label": "Chamber Oxygen Level - Start",
+        "description": "",
+        "action": "CaptureStart",
+        "combinator": "And",
+        "enabled": true,
+        "priority": 0,
+        "cooldownMs": 0,
+        "conditions": [
+          {
+            "id": 1,
+            "label": "oxygen_level",
+            "enabled": true,
+            "event": "SensorEvents",
+            "subsystem": "Gas",
+            "component": "process_chamber::gas_management::oxygen_sensor::1",
+            "signal": "oxygen_level",
+            "evaluation": {
+              "mode": "String",
+              "value": "700",
+              "caseSensitivity": "Exact"
+            },
+            "extra": {}
+          }
+        ],
+        "extra": {}
+      },
+      {
+        "id": 2,
+        "label": "Chamber Oxygen Level - Stop",
+        "description": "",
+        "action": "CaptureStop",
+        "combinator": "And",
+        "enabled": true,
+        "priority": 0,
+        "cooldownMs": 0,
+        "conditions": [
+          {
+            "id": 1,
+            "label": "oxygen_level",
+            "enabled": true,
+            "event": "SensorEvents",
+            "subsystem": "Gas",
+            "component": "process_chamber::gas_management::oxygen_sensor::1",
+            "signal": "oxygen_level",
+            "evaluation": {
+              "mode": "String",
+              "value": "1000",
+              "caseSensitivity": "Exact"
+            },
+            "extra": {}
+          }
+        ],
+        "extra": {}
+      },
+      {
+        "id": 3,
+        "label": "Laser Emission Interlock - Start",
+        "description": "",
+        "action": "CaptureStart",
+        "combinator": "And",
+        "enabled": true,
+        "priority": 0,
+        "cooldownMs": 0,
+        "conditions": [
+          {
+            "id": 1,
+            "label": "yellow_light",
+            "enabled": true,
+            "event": "SensorEvents",
+            "subsystem": "Chamber",
+            "component": "machine_state_indicator",
+            "signal": "yellow_light",
+            "evaluation": {
+              "mode": "String",
+              "value": "false",
+              "caseSensitivity": "Exact"
+            },
+            "extra": {}
+          }
+        ],
+        "extra": {}
+      },
+      {
+        "id": 4,
+        "label": "Laser Emission Interlock - Stop",
+        "description": "",
+        "action": "CaptureStop",
+        "combinator": "And",
+        "enabled": true,
+        "priority": 0,
+        "cooldownMs": 0,
+        "conditions": [
+          {
+            "id": 1,
+            "label": "yellow_light",
+            "enabled": true,
+            "event": "SensorEvents",
+            "subsystem": "Chamber",
+            "component": "machine_state_indicator",
+            "signal": "yellow_light",
+            "evaluation": {
+              "mode": "String",
+              "value": "true",
+              "caseSensitivity": "Exact"
+            },
+            "extra": {}
+          }
+        ],
+        "extra": {}
+      }
+    ],
+    "extra": {}
+  },
+  "extra": {},
+  "warnings": []
+}

@@ -1,0 +1,86 @@
+{
+  "client": {
+    "serverUrl": "opc.tcp://host:4840",
+    "authMode": "Certificate",
+    "machineProfile": "Aconity",
+    "securityMode": "Sign",
+    "securityPolicy": "Basic256Sha256",
+    "rootNode": { "kind": "BrowseName", "value": "MachineFleet" },
+    "samplingInterval": { "kind": "ServerNegotiated" },
+    "publishInterval": 250,
+    "bfsMaxDepth": 16,
+    "keepAliveCount": 240,
+    "lifetimeCount": 2400,
+    "queuePolicy": "DiscardOldest",
+    "queueSizeDataChange": 50,
+    "queueSizeEvents": 10,
+    "reconnectInterval": 1000,
+    "sessionTimeout": 60000,
+    "syncLoopIntervalInitial": 1000,
+    "syncLoopIntervalSettled": 30000,
+    "extra": { "Future_Minor_Attr": { "dtype": "u32", "value": 9 } }
+  },
+  "pipe": {
+    "enabled": false,
+    "configureClient": false,
+    "bufferSize": 65536,
+    "maxInboundMessageSize": 4096,
+    "minIntegrityLevel": "High",
+    "pipeName": "\\\\.\\pipe\\opc_ua_client_pipe",
+    "userAccessLevel": "Unrestricted",
+    "extra": {}
+  },
+  "triggers": {
+    "enabled": true,
+    "rules": [
+      {
+        "id": 3,
+        "label": "A first",
+        "description": "",
+        "action": "CaptureStart",
+        "combinator": "Or",
+        "enabled": false,
+        "priority": 0,
+        "cooldownMs": 0,
+        "conditions": [],
+        "extra": {}
+      },
+      {
+        "id": 7,
+        "label": "B second",
+        "description": "",
+        "action": "CaptureStop",
+        "enabled": true,
+        "priority": 0,
+        "cooldownMs": 0,
+        "conditions": [
+          {
+            "id": 2,
+            "label": "Status",
+            "enabled": false,
+            "event": "",
+            "subsystem": "",
+            "component": "",
+            "signal": "status",
+            "evaluation": { "mode": "String", "value": "ok", "caseSensitivity": "Exact" },
+            "extra": {}
+          },
+          {
+            "id": 9,
+            "label": "Level",
+            "enabled": true,
+            "event": "",
+            "subsystem": "",
+            "component": "",
+            "signal": "level",
+            "evaluation": { "mode": "Numeric", "threshold": 1000, "operator": "LessThanOrEqual", "epsilon": 0 },
+            "extra": {}
+          }
+        ],
+        "extra": {}
+      }
+    ],
+    "extra": {}
+  },
+  "extra": {}
+}

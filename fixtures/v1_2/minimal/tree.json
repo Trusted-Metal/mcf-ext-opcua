@@ -1,0 +1,52 @@
+{
+  "attrs": { "Opcua_Schema_Version": { "dtype": "utf8", "value": "1.2" } },
+  "children": {
+    "Client": {
+      "attrs": {
+        "Auth_Mode": { "dtype": "utf8", "value": "Anonymous" },
+        "BFS_Max_Depth": { "dtype": "u32", "value": 16 },
+        "Keep_Alive_Count": { "dtype": "u32", "value": 240 },
+        "Lifetime_Count": { "dtype": "u32", "value": 2400 },
+        "Machine_Profile": { "dtype": "utf8", "value": "" },
+        "Publish_Interval": { "dtype": "u32", "value": 250 },
+        "Queue_Policy": { "dtype": "utf8", "value": "DiscardOldest" },
+        "Queue_Size_Data_Change": { "dtype": "u32", "value": 10 },
+        "Queue_Size_Events": { "dtype": "u32", "value": 10 },
+        "Reconnect_Interval": { "dtype": "u32", "value": 1000 },
+        "Root_Node": { "dtype": "utf8", "value": "" },
+        "Sampling_Interval": { "dtype": "i32", "value": 250 },
+        "Security_Mode": { "dtype": "utf8", "value": "None" },
+        "Security_Policy": { "dtype": "utf8", "value": "" },
+        "Server_URL": { "dtype": "utf8", "value": "opc.tcp://localhost:4840" },
+        "Session_Timeout": { "dtype": "u32", "value": 60000 },
+        "Sync_Loop_Interval_Initial": { "dtype": "u32", "value": 1000 },
+        "Sync_Loop_Interval_Settled": { "dtype": "u32", "value": 30000 }
+      },
+      "children": {},
+      "datasets": {}
+    },
+    "Pipe": {
+      "attrs": {
+        "Buffer_Size": { "dtype": "u32", "value": 65536 },
+        "Configure_Client": { "dtype": "u32", "value": 0 },
+        "Inbound_Rate_Limit": { "dtype": "i32", "value": 100 },
+        "Max_Inbound_Message_Size": { "dtype": "u32", "value": 4096 },
+        "Min_Integrity_Level": { "dtype": "utf8", "value": "ProtectedProcess" },
+        "Pipe_Enabled": { "dtype": "u32", "value": 0 },
+        "Pipe_Name": { "dtype": "utf8", "value": "\\\\.\\pipe\\opc_ua_client_pipe" },
+        "User_Access_Level": { "dtype": "utf8", "value": "CurrentUserOnly" }
+      },
+      "children": {},
+      "datasets": {}
+    },
+    "Trigger": {
+      "attrs": {
+        "Trigger_Stop_Ceiling_Layers": { "dtype": "u32", "value": 0 },
+        "Triggers_Enabled": { "dtype": "u32", "value": 0 }
+      },
+      "children": {},
+      "datasets": {}
+    }
+  },
+  "datasets": {}
+}

@@ -1,0 +1,245 @@
+{
+  "attrs": {},
+  "children": {
+    "Client": {
+      "attrs": {
+        "Auth_Mode": {
+          "dtype": "utf8",
+          "value": "UsernamePassword"
+        },
+        "BFS_Max_Depth": {
+          "dtype": "i32",
+          "value": 16
+        },
+        "Keep_Alive_Count": {
+          "dtype": "i32",
+          "value": 240
+        },
+        "Lifetime_Count": {
+          "dtype": "i32",
+          "value": 2400
+        },
+        "Machine_Profile": {
+          "dtype": "utf8",
+          "value": "Aconity"
+        },
+        "Publish_Interval": {
+          "dtype": "i32",
+          "value": 250
+        },
+        "Queue_Policy": {
+          "dtype": "utf8",
+          "value": "DropOldest"
+        },
+        "Queue_Size_Data_Change": {
+          "dtype": "i32",
+          "value": 100
+        },
+        "Queue_Size_Events": {
+          "dtype": "i32",
+          "value": 7200
+        },
+        "Reconnect_Interval": {
+          "dtype": "i32",
+          "value": 10000
+        },
+        "Root_Node": {
+          "dtype": "utf8",
+          "value": "MachineFleet"
+        },
+        "Sampling_Interval": {
+          "dtype": "i32",
+          "value": 250
+        },
+        "Security_Mode": {
+          "dtype": "utf8",
+          "value": "SignAndEncrypt"
+        },
+        "Security_Policy": {
+          "dtype": "utf8",
+          "value": "ECC_brainpoolP384r1"
+        },
+        "Server_URL": {
+          "dtype": "utf8",
+          "value": "opc.tcp://172.17.20.240:62541/TM_OPCUA_DevTemplate_V0.1/TelemetryServer"
+        },
+        "Session_Timeout": {
+          "dtype": "i32",
+          "value": 60000
+        },
+        "Sync_Loop_Interval_Initial": {
+          "dtype": "i32",
+          "value": 1000
+        },
+        "Sync_Loop_Interval_Settled": {
+          "dtype": "i32",
+          "value": 30000
+        }
+      },
+      "children": {},
+      "datasets": {}
+    },
+    "Pipe": {
+      "attrs": {
+        "Buffer_Size": {
+          "dtype": "i32",
+          "value": 65536
+        },
+        "Configure_Client": {
+          "dtype": "i32",
+          "value": 1
+        },
+        "Inbound_Rate_Limit": {
+          "dtype": "i32",
+          "value": -1
+        },
+        "Max_Inbound_Message_Size": {
+          "dtype": "i32",
+          "value": 65536
+        },
+        "Min_Integrity_Level": {
+          "dtype": "utf8",
+          "value": "0x2000"
+        },
+        "Pipe_Enabled": {
+          "dtype": "i32",
+          "value": 1
+        },
+        "Pipe_Name": {
+          "dtype": "utf8",
+          "value": "\\\\.\\pipe\\opc_ua_client_pipe"
+        },
+        "User_Access_Level": {
+          "dtype": "utf8",
+          "value": "AnyLocalUser"
+        }
+      },
+      "children": {},
+      "datasets": {}
+    },
+    "Triggers": {
+      "attrs": {
+        "Trigger_Stop_Ceiling_Layers": {
+          "dtype": "i64",
+          "value": "3"
+        },
+        "Triggers_Enabled": {
+          "dtype": "f64",
+          "value": 1
+        }
+      },
+      "children": {
+        "Chamber Oxygen Level": {
+          "attrs": {
+            "Case_Sensitivity": {
+              "dtype": "utf8",
+              "value": "Exact"
+            },
+            "Component": {
+              "dtype": "utf8",
+              "value": "process_chamber::gas_management::oxygen_sensor::1"
+            },
+            "Cooldown_Period": {
+              "dtype": "i32",
+              "value": 0
+            },
+            "Event": {
+              "dtype": "utf8",
+              "value": "SensorEvents"
+            },
+            "ID": {
+              "dtype": "utf8",
+              "value": "trigger_2"
+            },
+            "Max_Fires_Per_Job": {
+              "dtype": "i32",
+              "value": 0
+            },
+            "Rule_Enabled": {
+              "dtype": "i32",
+              "value": 1
+            },
+            "Signal": {
+              "dtype": "utf8",
+              "value": "oxygen_level"
+            },
+            "Start_Value": {
+              "dtype": "utf8",
+              "value": "700"
+            },
+            "Stop_Value": {
+              "dtype": "utf8",
+              "value": "1000"
+            },
+            "Subsystem": {
+              "dtype": "utf8",
+              "value": "Gas"
+            },
+            "Trigger_Label": {
+              "dtype": "utf8",
+              "value": "Chamber Oxygen Level"
+            }
+          },
+          "children": {},
+          "datasets": {}
+        },
+        "Laser Emission Interlock": {
+          "attrs": {
+            "Case_Sensitivity": {
+              "dtype": "utf8",
+              "value": "Exact"
+            },
+            "Component": {
+              "dtype": "utf8",
+              "value": "machine_state_indicator"
+            },
+            "Cooldown_Period": {
+              "dtype": "i32",
+              "value": 0
+            },
+            "Event": {
+              "dtype": "utf8",
+              "value": "SensorEvents"
+            },
+            "ID": {
+              "dtype": "utf8",
+              "value": "trigger_1"
+            },
+            "Max_Fires_Per_Job": {
+              "dtype": "i32",
+              "value": 0
+            },
+            "Rule_Enabled": {
+              "dtype": "i32",
+              "value": 1
+            },
+            "Signal": {
+              "dtype": "utf8",
+              "value": "yellow_light"
+            },
+            "Start_Value": {
+              "dtype": "utf8",
+              "value": "false"
+            },
+            "Stop_Value": {
+              "dtype": "utf8",
+              "value": "true"
+            },
+            "Subsystem": {
+              "dtype": "utf8",
+              "value": "Chamber"
+            },
+            "Trigger_Label": {
+              "dtype": "utf8",
+              "value": "Laser Emission Interlock"
+            }
+          },
+          "children": {},
+          "datasets": {}
+        }
+      },
+      "datasets": {}
+    }
+  },
+  "datasets": {}
+}
