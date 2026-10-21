@@ -282,7 +282,7 @@ mcf-ext-opcua/
   bump: major release.
 - Distribution: Node release-asset tarball (how rdt-core consumes core today); Rust via git tag.
 - No dependency on core in either language, and none on `mcf-extension-contract`. Node has no
-  runtime dependencies; Rust depends only on `serde` and `indexmap`. Core owns reads and writes;
+  runtime dependencies; Rust depends only on `serde`. Core owns reads and writes;
   this library only parses extension data and prepares it for core to write.
 
 ## 9. Migration sequence

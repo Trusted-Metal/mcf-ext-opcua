@@ -49,14 +49,22 @@ const out = pack(r.value);                               // always writes the cu
 if (out.ok) config.extensions[EXTENSION_NAME] = out.value;
 ```
 
-See [nodejs/README.md](nodejs/README.md) for the full API. A Rust crate with the same interface is planned (`rust/`). It will define its own tree types rather than depend on core's contract crate.
+See [nodejs/README.md](nodejs/README.md) for the full API. The Rust crate (`rust/`) has the same interface with snake_case names: `unpack`, `pack`, `peek_schema_version`, `supported_schema_versions` and `suggested_defaults`. It defines its own tree types rather than depending on core's contract crate.
+
+```rust
+use mcf_ext_opcua::{pack, unpack, PackOptions};
+
+let mut config = unpack(&tree)?;                     // Result<OpcuaConfig, ExtensionError>
+config.triggers.rules[0].enabled = false;
+let tree = pack(&config, &PackOptions::default())?;  // always writes the current schema (1.2)
+```
 
 ## Repository layout
 
 ```text
 fixtures/    shared test fixtures (tree.json + model.json), read by every language's tests
 nodejs/      npm package `mcf-ext-opcua` (TypeScript, vitest)
-rust/        crate `mcf-ext-opcua` (planned)
+rust/        crate `mcf-ext-opcua` (Rust codec)
 tools/       extract-legacy-fixture.mjs: dumps a legacy tree from core's reference .h5
 scripts/     sync-version.mjs: release tooling
 DESIGN.md    design and decisions

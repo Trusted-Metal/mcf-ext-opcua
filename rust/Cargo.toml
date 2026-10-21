@@ -1,0 +1,13 @@
+[package]
+name = "mcf-ext-opcua"
+version = "0.1.0-rc.1"
+edition = "2021"
+description = "Pack/unpack codec for the OPC UA extension (TM_OPCUA) of a machine configuration file"
+repository = "https://github.com/Trusted-Metal/mcf-ext-opcua"
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
