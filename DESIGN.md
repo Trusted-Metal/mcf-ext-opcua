@@ -82,8 +82,14 @@ Conformance fixtures store the expected digest for each tree.
 - Node: types-only subpath export of the core package (`machine-config-library/extension-contract`).
   Extensions declare the interfaces structurally and do not import the core runtime.
 - Rust: a workspace crate in the core repo (`mcf-extension-contract`) holding the tree types and
-  digest, with no `hdf5` dependency.
+  digest, with no `hdf5` dependency. It is for hosts only; extension crates do not depend on it.
+  Like Node, they declare the tree types structurally (same shape as the fixtures' `tree.json`)
+  and the host converts at the boundary.
 - `assertContractCompatible(coreVersion, requires)` lets the host fail fast on a mismatch.
+- Extensions and core release independently. Compatibility is the contract version range an
+  extension declares (`REQUIRES_CONTRACT`), checked at runtime by the host, not by a package
+  manager. Within a contract major version changes are additive only, so a core release never
+  forces an extension release.
 
 ## 3. Rules every extension follows
 
@@ -275,8 +281,9 @@ mcf-ext-opcua/
   release. Dropping the ability to read an old schema: major release. A required contract major
   bump: major release.
 - Distribution: Node release-asset tarball (how rdt-core consumes core today); Rust via git tag.
-- No dependency on the core runtime. Node has no runtime dependencies; Rust depends only on
-  `mcf-extension-contract`, `serde` and `indexmap`.
+- No dependency on core in either language, and none on `mcf-extension-contract`. Node has no
+  runtime dependencies; Rust depends only on `serde`. Core owns reads and writes;
+  this library only parses extension data and prepares it for core to write.
 
 ## 9. Migration sequence
 

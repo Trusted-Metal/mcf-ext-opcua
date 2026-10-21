@@ -1,0 +1,84 @@
+name: Node.js
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+
+concurrency:
+  group: nodejs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: nodejs/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: nodejs
+
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: nodejs
+
+      - name: Build
+        run: npm run build
+        working-directory: nodejs
+
+      - name: Test (vitest)
+        run: npm test
+        working-directory: nodejs
+
+  # Branch build artifact: the exact tarball a release would attach, for trying a branch in a consumer.
+  pack:
+    name: Pack tgz
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: nodejs/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: nodejs
+
+      - name: Pack
+        run: npm pack
+        working-directory: nodejs
+
+      - name: Smoke-test tarball in a clean consumer project
+        shell: bash
+        run: |
+          consumer="$RUNNER_TEMP/consumer"
+          mkdir "$consumer"
+          cd "$consumer"
+          npm init -y > /dev/null
+          npm pkg set type=module
+          npm install "$GITHUB_WORKSPACE"/nodejs/mcf-ext-opcua-*.tgz
+          node -e "import('mcf-ext-opcua').then(m => { if (m.EXTENSION_NAME !== 'TM_OPCUA') throw new Error('bad export'); console.log('ok', m.supportedSchemaVersions()); })"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcf-ext-opcua-nodejs-tgz
+          path: nodejs/*.tgz
+          retention-days: 14
+          if-no-files-found: error

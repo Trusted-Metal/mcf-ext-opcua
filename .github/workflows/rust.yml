@@ -1,0 +1,62 @@
+name: Rust
+
+# Skips itself until rust/Cargo.toml exists (see DESIGN.md section 8).
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+    paths:
+      - "rust/**"
+      - "fixtures/**"
+      - "schema/**"
+      - ".github/workflows/rust.yml"
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    name: Detect Rust crate
+    runs-on: ubuntu-latest
+    outputs:
+      has_rust: ${{ steps.check.outputs.has_rust }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: check
+        run: |
+          if [ -f rust/Cargo.toml ]; then echo "has_rust=true" >> "$GITHUB_OUTPUT"; else echo "has_rust=false" >> "$GITHUB_OUTPUT"; fi
+
+  test:
+    name: Test (${{ matrix.os }})
+    needs: detect
+    if: needs.detect.outputs.has_rust == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Format
+        run: cargo fmt --check
+        working-directory: rust
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: rust
+
+      - name: Test
+        run: cargo test
+        working-directory: rust
