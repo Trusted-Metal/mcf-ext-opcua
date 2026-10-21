@@ -60,3 +60,28 @@ jobs:
       - name: Test
         run: cargo test
         working-directory: rust
+
+  # Branch build artifact: the exact .crate a release would attach.
+  package:
+    name: Package crate
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Package
+        run: cargo package --locked
+        working-directory: rust
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcf-ext-opcua-rust-crate
+          path: rust/target/package/*.crate
+          retention-days: 14
+          if-no-files-found: error

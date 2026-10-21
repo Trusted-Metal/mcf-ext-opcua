@@ -44,7 +44,7 @@
       "@semantic-release/exec",
       {
         "prepareCmd": "npm run sync-version",
-        "publishCmd": "(cd nodejs && npm pack)"
+        "publishCmd": "(cd nodejs && npm pack) && (cd rust && cargo package --allow-dirty)"
       }
     ],
     [
@@ -66,7 +66,8 @@
       "@semantic-release/github",
       {
         "assets": [
-          { "path": "nodejs/*.tgz", "label": "Node.js package (.tgz)" }
+          { "path": "nodejs/*.tgz", "label": "Node.js package (.tgz)" },
+          { "path": "rust/target/package/*.crate", "label": "Rust crate (.crate)" }
         ],
         "successComment": false,
         "failComment": false,

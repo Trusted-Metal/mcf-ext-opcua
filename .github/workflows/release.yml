@@ -1,7 +1,7 @@
 name: Release
 
 # main publishes rc pre-releases, release publishes stable versions.
-# Consumers: Node takes the .tgz release asset; Rust takes the git tag (vX.Y.Z).
+# Consumers: Node takes the .tgz release asset; Rust takes the .crate asset or the git tag (vX.Y.Z).
 on:
   push:
     branches:
@@ -40,6 +40,12 @@ jobs:
       - name: Test
         run: npm test
         working-directory: nodejs
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Test (Rust)
+        run: cargo test
+        working-directory: rust
 
       - name: Configure deploy key for git push
         env:

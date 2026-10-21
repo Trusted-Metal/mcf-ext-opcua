@@ -87,13 +87,13 @@ npm run build
 | Workflow | File | Trigger | What it does |
 |---|---|---|---|
 | **Node.js** | `nodejs.yml` | Every push to any branch | Typecheck, build and vitest on Ubuntu + Windows. Then packs the tarball, installs it into a clean project to check it imports, and uploads it as a 14-day artifact (`mcf-ext-opcua-nodejs-tgz`) |
-| **Rust** | `rust.yml` | Push touching `rust/`, `fixtures/`, `schema/` | `cargo fmt`, `clippy`, `cargo test` on Ubuntu + Windows. Does nothing until `rust/` exists |
-| **Release** | `release.yml` | Push to `main` or `release` | Typecheck + tests, then `semantic-release`: bumps the version, updates `CHANGELOG.md`, tags `vX.Y.Z`, and creates a GitHub release with the Node tarball attached |
+| **Rust** | `rust.yml` | Push touching `rust/`, `fixtures/`, `schema/` | `cargo fmt`, `clippy`, `cargo test` on Ubuntu + Windows, then packs the `.crate` and uploads it as a 14-day artifact (`mcf-ext-opcua-rust-crate`). Skipped when there is no `rust/Cargo.toml` |
+| **Release** | `release.yml` | Push to `main` or `release` | Node and Rust tests, then `semantic-release`: bumps the version, updates `CHANGELOG.md`, tags `vX.Y.Z`, and creates a GitHub release with the Node `.tgz` and the Rust `.crate` attached |
 
 Versioning is lockstep across languages and follows the commit history:
 
-- `main` publishes `rc` pre-releases (`0.1.0-rc.N`); `release` publishes stable versions.
-- `scripts/sync-version.mjs` copies the version to `nodejs/package.json` (and the lockfile), and to `rust/Cargo.toml` when it exists.
+- `main` publishes `rc` pre-releases (`1.0.0-rc.N`); `release` publishes stable versions.
+- `scripts/sync-version.mjs` copies the version to `nodejs/package.json` (and the lockfile), and to `rust/Cargo.toml` and `rust/Cargo.lock`.
 - The release commit is pushed with a deploy key (`RELEASE_DEPLOY_KEY` repository secret) so it can bypass branch protection on `main` and `release`.
 
 ### Consuming a release
@@ -101,16 +101,18 @@ Versioning is lockstep across languages and follows the commit history:
 Node.js: point `package.json` at the release asset, so a plain `npm install` or `pnpm install` works with no registry:
 
 ```json
-"mcf-ext-opcua": "https://github.com/Trusted-Metal/mcf-ext-opcua/releases/download/v0.1.0-rc.1/mcf-ext-opcua-0.1.0-rc.1.tgz"
+"mcf-ext-opcua": "https://github.com/Trusted-Metal/mcf-ext-opcua/releases/download/v1.0.0-rc.1/mcf-ext-opcua-1.0.0-rc.1.tgz"
 ```
 
-Rust: depend on the git tag (the crate has no registry release):
+Rust: depend on the git tag. Cargo finds the crate in `rust/` by name:
 
 ```toml
-mcf-ext-opcua = { git = "https://github.com/Trusted-Metal/mcf-ext-opcua", tag = "v0.1.0-rc.1" }
+mcf-ext-opcua = { git = "https://github.com/Trusted-Metal/mcf-ext-opcua", tag = "v1.0.0-rc.1" }
 ```
 
-To try a branch before release, download the `mcf-ext-opcua-nodejs-tgz` artifact from its Node.js workflow run.
+The release also attaches `mcf-ext-opcua-<version>.crate` (a gzipped tarball of the sources) for builds that cannot reach git or that vendor their dependencies: extract it and use a `path` dependency.
+
+To try a branch before release, download the `mcf-ext-opcua-nodejs-tgz` or `mcf-ext-opcua-rust-crate` artifact from its workflow run.
 
 ## Commit convention
 

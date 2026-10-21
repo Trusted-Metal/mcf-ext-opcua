@@ -37,3 +37,11 @@ if (existsSync(cargoPath)) {
   writeFileSync(cargoPath, cargo.replace(/^(version\s*=\s*)"[^"]+"/m, `$1"${version}"`));
   console.log(`  rust/Cargo.toml -> ${version}`);
 }
+
+// Cargo.lock records the crate's own version too; keep it in step so `cargo package` doesn't rewrite it.
+const lockPath = join(root, 'rust', 'Cargo.lock');
+if (existsSync(lockPath)) {
+  const lock = readFileSync(lockPath, 'utf8');
+  writeFileSync(lockPath, lock.replace(/(name = "mcf-ext-opcua"\r?\nversion = ")[^"]+"/, `$1${version}"`));
+  console.log(`  rust/Cargo.lock -> ${version}`);
+}
