@@ -1,6 +1,6 @@
 {
   "name": "mcf-ext-opcua",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "Pack/unpack codec for the OPC UA extension (TM_OPCUA) of a machine configuration file",
   "type": "module",
   "main": "./dist/index.js",

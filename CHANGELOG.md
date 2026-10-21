@@ -1,3 +1,8 @@
+## 1.0.0-rc.2 (2026-10-21)
+
+* Merge pull request #4 from Trusted-Metal/SD-1737 ([162bfbf](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/162bfbf)), closes [#4](https://github.com/Trusted-Metal/mcf-ext-opcua/issues/4)
+* fix: fix issue with crate not generating in semantic release package ([beb9743](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/beb9743))
+
 ## 1.0.0-rc.1 (2026-10-21)
 
 * create opcua extension lib ([3447d4e](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/3447d4e))
