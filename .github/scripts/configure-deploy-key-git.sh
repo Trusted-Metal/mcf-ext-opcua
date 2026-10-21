@@ -5,7 +5,12 @@
 set -euo pipefail
 
 mkdir -p ~/.ssh
-echo "$RELEASE_DEPLOY_KEY" > ~/.ssh/deploy_key
+if [ -z "${RELEASE_DEPLOY_KEY:-}" ]; then
+  echo "RELEASE_DEPLOY_KEY is empty or not set for this repository" >&2
+  exit 1
+fi
+# Secrets pasted from Windows can carry CRLF line endings, which libcrypto rejects.
+printf '%s\n' "$RELEASE_DEPLOY_KEY" | tr -d '\r' > ~/.ssh/deploy_key
 chmod 600 ~/.ssh/deploy_key
 
 # Validate key and print fingerprint for log verification
