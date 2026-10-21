@@ -1,5 +1,5 @@
 # mcf-ext-opcua
-
+ 
 Pack/unpack codec for the OPC UA extension (`TM_OPCUA`) of a machine configuration file (`.h5`).
 
 This repo is an **extension** of the [Machine Config Library](https://github.com/Trusted-Metal/Machine_Config_Library) ("MCF core"). Core reads and writes the HDF5 file; this library only turns the OPC UA part into a typed model and back. Pure functions, no I/O, no HDF5 dependency, no runtime dependencies.
