@@ -10,6 +10,7 @@
         "B second": {
           "attrs": {
             "Action": { "dtype": "utf8", "value": "CaptureStop" },
+            "Combinator": { "dtype": "utf8", "value": "" },
             "Rule_Enabled": { "dtype": "u32", "value": 1 },
             "Rule_Id": { "dtype": "u32", "value": 7 },
             "Rule_Label": { "dtype": "utf8", "value": "B second" }
@@ -30,9 +31,11 @@
             },
             "Status": {
               "attrs": {
+                "Case_Sensitivity": { "dtype": "utf8", "value": "Exact" },
                 "Condition_Enabled": { "dtype": "u32", "value": 0 },
                 "Condition_Id": { "dtype": "u32", "value": 2 },
                 "Condition_Label": { "dtype": "utf8", "value": "Status" },
+                "Evaluation_Mode": { "dtype": "utf8", "value": "String" },
                 "Signal": { "dtype": "utf8", "value": "status" },
                 "Value": { "dtype": "utf8", "value": "ok" }
               },

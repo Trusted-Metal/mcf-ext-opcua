@@ -4,7 +4,7 @@ use crate::contract::ExtensionTree;
 use crate::errors::{join_path, validation, Result};
 use crate::fields::{
     assert_leaf, assert_no_datasets, is_label, read_fields, require_child, write_fields, Raw,
-    Values,
+    ReadCtx, Values,
 };
 use crate::model::{
     AuthMode, CaseSensitivity, ClientConfig, Combinator, ComparisonOperator, Condition, Evaluation,
@@ -13,7 +13,7 @@ use crate::model::{
 };
 use crate::number::{is_numeric_literal, js_number_to_string};
 use crate::schema_v1::{
-    CLIENT_FIELDS, CONDITION_FIELDS, CURRENT_SCHEMA_VERSION, PIPE_FIELDS, RULE_FIELDS,
+    CLIENT_FIELDS, CONDITION_FIELDS, CURRENT_MINOR, CURRENT_SCHEMA_VERSION, PIPE_FIELDS, RULE_FIELDS,
     SCHEMA_VERSION_ATTR, TRIGGER_FIELDS, VERSION_FIELDS,
 };
 
@@ -115,9 +115,9 @@ fn parse_enum<T>(parse: fn(&str) -> Option<T>, v: &Values, name: &str, group: &s
 
 // ---- unpack ----
 
-fn unpack_client(group: &ExtensionTree) -> Result<ClientConfig> {
+fn unpack_client(group: &ExtensionTree, ctx: &mut ReadCtx<'_>) -> Result<ClientConfig> {
     assert_leaf(group, CLIENT)?;
-    let (v, extra) = read_fields(&group.attrs, CLIENT_FIELDS, CLIENT, &[])?;
+    let (v, extra) = read_fields(&group.attrs, CLIENT_FIELDS, CLIENT, &[], ctx)?;
     let profile = v.str("Machine_Profile");
     let policy = v.str("Security_Policy");
     Ok(ClientConfig {
@@ -159,9 +159,9 @@ fn unpack_client(group: &ExtensionTree) -> Result<ClientConfig> {
     })
 }
 
-fn unpack_pipe(group: &ExtensionTree) -> Result<PipeConfig> {
+fn unpack_pipe(group: &ExtensionTree, ctx: &mut ReadCtx<'_>) -> Result<PipeConfig> {
     assert_leaf(group, PIPE)?;
-    let (v, extra) = read_fields(&group.attrs, PIPE_FIELDS, PIPE, &[])?;
+    let (v, extra) = read_fields(&group.attrs, PIPE_FIELDS, PIPE, &[], ctx)?;
     let rate = optional_from_raw(
         v.int("Inbound_Rate_Limit"),
         &attr_path(PIPE, "Inbound_Rate_Limit"),
@@ -180,7 +180,7 @@ fn unpack_pipe(group: &ExtensionTree) -> Result<PipeConfig> {
     })
 }
 
-fn unpack_condition(label: &str, group: &ExtensionTree, rule_path: &str) -> Result<Condition> {
+fn unpack_condition(label: &str, group: &ExtensionTree, rule_path: &str, ctx: &mut ReadCtx <'_>) -> Result<Condition> {
     let path = join_path(rule_path, label);
     if !is_label(label) {
         return Err(validation(
@@ -189,14 +189,37 @@ fn unpack_condition(label: &str, group: &ExtensionTree, rule_path: &str) -> Resu
         ));
     }
     assert_leaf(group, &path)?;
-    let (v, extra) = read_fields(&group.attrs, CONDITION_FIELDS, &path, &[])?;
+    let (v, extra) = read_fields(&group.attrs, CONDITION_FIELDS, &path, &[], ctx)?;
     if v.str("Condition_Label") != label {
         return Err(validation(
             attr_path(&path, "Condition_Label"),
             format!("must equal the group name \"{label}\""),
         ));
     }
-    let evaluation = if v.str("Evaluation_Mode") == "Numeric" {
+    // The field the mode uses must be present, and its blank reads as the default with a warning.
+    // The other one is blank by convention and is ignored.
+    let mode = v.str("Evaluation_Mode");
+    let numeric = mode == "Numeric";
+    let (used, default) = if numeric {
+        ("Comparison_Operator", "Equal")
+    } else {
+        ("Case_Sensitivity", "Exact")
+    };
+    if !group.attrs.contains_key(used) {
+        return Err(validation(
+            attr_path(&path, used),
+            format!("required when Evaluation_Mode is {mode}"),
+        ));
+    }
+    let used_value = match v.str(used) {
+        "" => {
+            ctx.warn(&attr_path(&path, used), format!("blank, read as {default:?}"));
+            default
+        }
+        s => s,
+    };
+    let bad_used = || validation(attr_path(&path, used), format!("invalid value {used_value:?}"));
+    let evaluation = if numeric {
         let text = v.str("Value");
         let threshold = if is_numeric_literal(text) {
             text.parse::<f64>().ok().filter(|n| n.is_finite())
@@ -209,15 +232,22 @@ fn unpack_condition(label: &str, group: &ExtensionTree, rule_path: &str) -> Resu
                 format!("Numeric condition value \"{text}\" is not a finite number"),
             ));
         };
+        let epsilon = v.f64("Epsilon");
+        if epsilon < 0.0 {
+            return Err(validation(
+                attr_path(&path, "Epsilon"),
+                "must be >= 0 (0 = the consumer's default tolerance)",
+            ));
+        }
         Evaluation::Numeric {
             threshold,
-            operator: parse_enum(ComparisonOperator::parse, &v, "Comparison_Operator", &path)?,
-            epsilon: v.f64("Epsilon"),
+            operator: ComparisonOperator::parse(used_value).ok_or_else(bad_used)?,
+            epsilon,
         }
     } else {
         Evaluation::String {
             value: v.str("Value").to_string(),
-            case_sensitivity: parse_enum(CaseSensitivity::parse, &v, "Case_Sensitivity", &path)?,
+            case_sensitivity: CaseSensitivity::parse(used_value).ok_or_else(bad_used)?,
         }
     };
     Ok(Condition {
@@ -233,7 +263,7 @@ fn unpack_condition(label: &str, group: &ExtensionTree, rule_path: &str) -> Resu
     })
 }
 
-fn unpack_rule(label: &str, group: &ExtensionTree) -> Result<Rule> {
+fn unpack_rule(label: &str, group: &ExtensionTree, ctx: &mut ReadCtx<'_>) -> Result<Rule> {
     let path = join_path(TRIGGER, label);
     if !is_label(label) {
         return Err(validation(
@@ -242,7 +272,7 @@ fn unpack_rule(label: &str, group: &ExtensionTree) -> Result<Rule> {
         ));
     }
     assert_no_datasets(group, &path)?;
-    let (v, extra) = read_fields(&group.attrs, RULE_FIELDS, &path, &[])?;
+    let (v, extra) = read_fields(&group.attrs, RULE_FIELDS, &path, &[], ctx)?;
     if v.str("Rule_Label") != label {
         return Err(validation(
             attr_path(&path, "Rule_Label"),
@@ -252,7 +282,7 @@ fn unpack_rule(label: &str, group: &ExtensionTree) -> Result<Rule> {
 
     let mut conditions: Vec<Condition> = Vec::new();
     for (name, child) in &group.children {
-        let c = unpack_condition(name, child, &path)?;
+        let c = unpack_condition(name, child, &path, ctx)?;
         if conditions.iter().any(|o| o.id == c.id) {
             return Err(validation(
                 attr_path(&join_path(&path, name), "Condition_Id"),
@@ -263,7 +293,25 @@ fn unpack_rule(label: &str, group: &ExtensionTree) -> Result<Rule> {
     }
     conditions.sort_by_key(|c| c.id);
 
+    if conditions.len() > 1 && !group.attrs.contains_key("Combinator") {
+        return Err(validation(attr_path(&path, "Combinator"), "required when a rule has more than one condition"));
+    }
+
     let combinator = v.str("Combinator");
+     if conditions.len() > 1 {
+        if !group.attrs.contains_key("Combinator") {
+            return Err(validation(
+                attr_path(&path, "Combinator"),
+                "required when a rule has more than one condition",
+            ));
+        }
+        if combinator.is_empty() {
+            ctx.warn(
+                &attr_path(&path, "Combinator"),
+                format!("blank with {} conditions: consumers evaluate only one of them", conditions.len()),
+            );
+        }
+    }
     let max_fires = optional_from_raw(
         v.int("Max_Fires_Per_Job"),
         &attr_path(&path, "Max_Fires_Per_Job"),
@@ -288,12 +336,12 @@ fn unpack_rule(label: &str, group: &ExtensionTree) -> Result<Rule> {
     })
 }
 
-fn unpack_triggers(group: &ExtensionTree) -> Result<TriggerConfig> {
+fn unpack_triggers(group: &ExtensionTree, ctx: &mut ReadCtx<'_>) -> Result<TriggerConfig> {
     assert_no_datasets(group, TRIGGER)?;
-    let (v, extra) = read_fields(&group.attrs, TRIGGER_FIELDS, TRIGGER, &[])?;
+    let (v, extra) = read_fields(&group.attrs, TRIGGER_FIELDS, TRIGGER, &[], ctx)?;
     let mut rules: Vec<Rule> = Vec::new();
     for (name, child) in &group.children {
-        let r = unpack_rule(name, child)?;
+        let r = unpack_rule(name, child, ctx)?;
         if rules.iter().any(|o| o.id == r.id) {
             return Err(validation(
                 attr_path(&join_path(TRIGGER, name), "Rule_Id"),
@@ -317,7 +365,7 @@ fn unpack_triggers(group: &ExtensionTree) -> Result<TriggerConfig> {
 }
 
 /// Unpacks any 1.x tree; unknown attributes go to `extra`, unknown groups and datasets are errors.
-pub(crate) fn unpack_v1(tree: &ExtensionTree) -> Result<OpcuaConfig> {
+pub(crate) fn unpack_v1(tree: &ExtensionTree, file_minor: u32) -> Result<OpcuaConfig> {
     assert_no_datasets(tree, "")?;
     if let Some(name) = tree
         .children
@@ -326,23 +374,25 @@ pub(crate) fn unpack_v1(tree: &ExtensionTree) -> Result<OpcuaConfig> {
     {
         return Err(validation(name.as_str(), "unexpected child group"));
     }
-    let (_, extra) = read_fields(&tree.attrs, &[], "", &[SCHEMA_VERSION_ATTR])?;
+    let mut warnings = Vec::new();
+    let mut ctx = ReadCtx { file_minor, reader_minor: CURRENT_MINOR, warnings: &mut warnings };
+    let (_, extra) = read_fields(&tree.attrs, &[], "", &[SCHEMA_VERSION_ATTR], &mut ctx)?;
+    let client = unpack_client(require_child(tree, CLIENT)?, &mut ctx)?;
+    let pipe = unpack_pipe(require_child(tree, PIPE)?, &mut ctx)?;
+    let triggers = unpack_triggers(require_child(tree, TRIGGER)?, &mut ctx)?;
     Ok(OpcuaConfig {
-        client: unpack_client(require_child(tree, CLIENT)?)?,
-        pipe: unpack_pipe(require_child(tree, PIPE)?)?,
-        triggers: unpack_triggers(require_child(tree, TRIGGER)?)?,
+        client,
+        pipe,
+        triggers,
         extra,
-        warnings: None,
+        warnings: (!warnings.is_empty()).then_some(warnings),
     })
 }
 
 // ---- pack ----
 
 fn pack_client(c: &ClientConfig) -> Result<ExtensionTree> {
-    let policy = match c.security_policy {
-        SecurityPolicy::Auto => "",
-        other => other.as_str(),
-    };
+    let policy = c.security_policy.to_spec();
     let values: HashMap<&'static str, Raw> = HashMap::from([
         ("Auth_Mode", Raw::from(c.auth_mode.as_str())),
         ("BFS_Max_Depth", Raw::from(c.bfs_max_depth)),
@@ -435,6 +485,9 @@ fn pack_condition(c: &Condition, rule_path: &str) -> Result<ExtensionTree> {
                     attr_path(&path, "Value"),
                     "Numeric threshold must be a finite number",
                 ));
+            }
+            if *epsilon < 0.0 {
+                return Err(validation(attr_path(&path, "Epsilon"), "must be >= 0"));
             }
             (
                 "Numeric",

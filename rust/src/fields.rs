@@ -72,9 +72,40 @@ impl DefaultValue {
             DefaultValue::Float(f) => Raw::Float(f),
         }
     }
+
+    /// How the value reads in a warning.
+    pub fn describe(self) -> String {
+        match self {
+            DefaultValue::Str(s) => format!("{s:?}"),
+            DefaultValue::Int(n) => n.to_string(),
+            DefaultValue::Float(x) => x.to_string(),
+        }
+    }
 }
 
-/// One on-disk attribute of a group. Without a `default`, a missing attribute is an error.
+/// What a missing attribute means.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Presence {
+    /// Missing is an error (structure, identity, security/connection, matching semantics).
+    Required,
+    /// Missing reads as the field's default, with a warning.
+    Warned,
+}
+
+/// What a blank utf8 value ("") means for an enum field.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Blank {
+    /// Blank is an error such as for required fields `[Actions/Id's]`.
+    Invalid,
+    /// Blank is a value in its own right; the caller decides (mode-dependent condition fields).
+    Value,
+    /// Blank reads as this canonical value, with a warning (strictest where security-relevant).
+    Default(&'static str),
+    /// Blank is the normal form when the condition's mode ignores the field.
+    ModeUnused,
+}
+
+/// One on-disk attribute of a group.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct FieldSpec {
     pub name: &'static str,
@@ -87,9 +118,16 @@ pub(crate) struct FieldSpec {
     pub flag: bool,
     pub nonzero: bool,
     pub starts_with: Option<&'static str>,
+    pub presence: Presence,
+    /// Schema minor that introduced the field; a file declaring an older minor never needs it.
+    pub since_minor: u32,
+    pub blank: Blank,
+    /// Maps alternative spellings consumers accept to the canonical one, before the enum check.
+    pub normalize: Option<fn(&str) -> Option<&'static str>>,
 }
 
 impl FieldSpec {
+    /// Missing is an error.
     pub const fn req(name: &'static str, dtype: FieldDtype) -> Self {
         Self {
             name,
@@ -100,13 +138,29 @@ impl FieldSpec {
             flag: false,
             nonzero: false,
             starts_with: None,
+            presence: Presence::Required,
+            since_minor: 2,
+            blank: Blank::Invalid,
+            normalize: None,
         }
     }
 
     pub const fn opt(name: &'static str, dtype: FieldDtype, default: DefaultValue) -> Self {
         Self {
             default: Some(default),
+            presence: Presence::Warned,
             ..Self::req(name, dtype)
+        }
+    }
+
+    pub const fn blank(self, blank: Blank) -> Self {
+        Self { blank, ..self }
+    }
+
+    pub const fn normalized(self, f: fn(&str) -> Option<&'static str>) -> Self {
+        Self {
+            normalize: Some(f),
+            ..self
         }
     }
 
@@ -158,6 +212,16 @@ pub(crate) fn check_value(f: &FieldSpec, v: Raw, path: &str) -> Result<Raw> {
                 return Err(validation(here, "must not contain NUL"));
             }
             let mut out = s;
+            if out.is_empty() {
+                match f.blank {
+                    Blank::Value | Blank::ModeUnused => return Ok(Raw::Str(out)),
+                    Blank::Default(d) => out = d.to_string(),
+                    Blank::Invalid => {}
+                }
+            }
+            if let Some(canonical) = f.normalize.and_then(|n| n(&out)) {
+                out = canonical.to_string();
+            }
             if let Some(list) = f.enum_values {
                 let found = if f.case_insensitive {
                     let lower = out.to_lowercase();
@@ -347,36 +411,115 @@ impl Values {
     }
 }
 
+/// Read-side state shared by every group of one unpack.
+pub(crate) struct ReadCtx<'a> {
+    /// Minor of the file's declared schema version; fields introduced later are never required.
+    pub file_minor: u32,
+    /// Minor this reader implements; unknown names in a newer-minor file are expected, not typos.
+    pub reader_minor: u32,
+    pub warnings: &'a mut Vec<String>,
+}
+
+impl ReadCtx<'_> {
+    pub fn warn(&mut self, at: &str, message: impl std::fmt::Display) {
+        self.warnings.push(format!("{at}: {message}"));
+    }
+}
+
+/// A warning for a read value that was normalised; casing-only changes stay silent (as
+/// `ignore_case` always has).
+pub(crate) fn change_note(before: &str, after: &str) -> Option<String> {
+    if before == after || before.eq_ignore_ascii_case(after) {
+        None
+    } else if before.is_empty() {
+        Some(format!("blank, read as {after:?}"))
+    } else {
+        Some(format!("{before:?} read as {after:?}"))
+    }
+}
+
+fn edit_distance(a: &str, b: &str) -> usize {
+    let (a, b): (Vec<char>, Vec<char>) = (
+        a.to_ascii_lowercase().chars().collect(),
+        b.to_ascii_lowercase().chars().collect(),
+    );
+    let mut prev: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.iter().enumerate() {
+        let mut cur = vec![i + 1];
+        for (j, cb) in b.iter().enumerate() {
+            cur.push(
+                (prev[j] + usize::from(ca != cb))
+                    .min(prev[j + 1] + 1)
+                    .min(cur[j] + 1),
+            );
+        }
+        prev = cur;
+    }
+    prev[b.len()]
+}
+
 /// Reads every spec'd attribute (exact dtype, validated) and collects the rest into `extra`.
+/// Missing: `Required` is an error, `Warned` reads as the default with a warning, and a field
+/// newer than the file's declared minor reads as its default silently. Unknown names are kept
+/// in `extra` and warned (with a suggestion when one is close).
 pub(crate) fn read_fields(
     attrs: &BTreeMap<String, Attr>,
     specs: &[FieldSpec],
     path: &str,
     ignore: &[&str],
+    ctx: &mut ReadCtx<'_>,
 ) -> Result<(Values, ExtraAttrs)> {
     let mut values = HashMap::new();
     for f in specs {
+        let at = join_path(path, &format!("@{}", f.name));
         let raw = match attrs.get(f.name) {
-            Some(a) => attr_to_raw(f, a, path)?,
-            None => match f.default {
-                Some(d) => d.raw(),
-                None => {
-                    return Err(validation(
-                        join_path(path, &format!("@{}", f.name)),
-                        "missing required attribute",
-                    ))
+            Some(a) => {
+                let raw = attr_to_raw(f, a, path)?;
+                if let (Value::Scalar(Scalar::Utf8(before)), Raw::Str(after)) = (&a.value, &raw) {
+                    if let Some(note) = change_note(before, after) {
+                        ctx.warn(&at, note);
+                    }
                 }
+                raw
+            }
+            None => match (f.presence, f.default) {
+                (_, Some(d)) if f.since_minor > ctx.file_minor => d.raw(),
+                (Presence::Warned, Some(d)) => {
+                    ctx.warn(&at, format!("missing, read as {}", d.describe()));
+                    d.raw()
+                }
+                _ => return Err(validation(at, "missing required attribute")),
             },
         };
         values.insert(f.name, raw);
     }
-    let extra = attrs
+    let extra: ExtraAttrs = attrs
         .iter()
         .filter(|(name, _)| {
             !specs.iter().any(|f| f.name == name.as_str()) && !ignore.contains(&name.as_str())
         })
         .map(|(name, attr)| (name.clone(), attr.clone()))
         .collect();
+    for name in extra.keys() {
+        let at = join_path(path, &format!("@{name}"));
+        let near = specs
+            .iter()
+            .map(|f| f.name)
+            .chain(ignore.iter().copied())
+            .find(|s| {
+                s.eq_ignore_ascii_case(name) || (name.len() > 3 && edit_distance(s, name) <= 2)
+            });
+        match near {
+            Some(s) => ctx.warn(
+                &at,
+                format!("unknown attribute (did you mean {s}?), kept but not used"),
+            ),
+            None if ctx.file_minor <= ctx.reader_minor => {
+                ctx.warn(&at, "unknown attribute, kept but not used")
+            }
+            None => {}
+        }
+    }
     Ok((Values(values), extra))
 }
 

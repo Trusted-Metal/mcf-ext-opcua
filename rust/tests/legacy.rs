@@ -131,7 +131,7 @@ fn applies_documented_defaults_to_missing_optional_attributes() {
             auth_mode: AuthMode::Anonymous,
             machine_profile: None,
             security_mode: SecurityMode::None,
-            security_policy: SecurityPolicy::Auto,
+            security_policy: SecurityPolicy::None,
             root_node: RootNode::AutoDiscover,
             sampling_interval: SamplingInterval::Ms { ms: 250 },
             publish_interval: 250,
@@ -164,7 +164,13 @@ fn applies_documented_defaults_to_missing_optional_attributes() {
     );
     assert!(!c.triggers.enabled);
     assert!(c.triggers.rules.is_empty());
-    assert_eq!(c.warnings, Some(vec![]));
+    assert_eq!(
+        c.warnings,
+        Some(vec![
+            "Client/@Security_Policy: \"None\" is read as the no-security policy (earlier codec versions read it as Auto)"
+                .to_string()
+        ])
+    );
 }
 
 #[test]
@@ -382,13 +388,31 @@ fn reports_skipped_sides_as_warnings() {
     ));
     let labels: Vec<&str> = c.triggers.rules.iter().map(|r| r.label.as_str()).collect();
     assert_eq!(labels, ["NoStop - Start"]);
+    let skipped: Vec<String> = c
+        .warnings
+        .unwrap()
+        .into_iter()
+        .filter(|w| w.contains("skipped rule"))
+        .collect();
     assert_eq!(
-        c.warnings.unwrap(),
+        skipped,
         [
             "Triggers/NoSignal: skipped rule \"NoSignal - Start\": legacy trigger has no signal or value for that action",
             "Triggers/NoSignal: skipped rule \"NoSignal - Stop\": legacy trigger has no signal or value for that action",
             "Triggers/NoStop: skipped rule \"NoStop - Stop\": legacy trigger has no signal or value for that action",
         ]
+    );
+}
+
+#[test]
+fn none_policy_reads_as_no_security_with_a_warning() {
+    let c = plain();
+    assert_eq!(c.client.security_policy, SecurityPolicy::None);
+    let ws = c.warnings.unwrap();
+    assert!(
+        ws.iter().any(|w| w
+            .starts_with("Client/@Security_Policy: \"None\" is read as the no-security policy")),
+        "{ws:#?}"
     );
 }
 

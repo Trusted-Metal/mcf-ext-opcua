@@ -7,28 +7,24 @@ use crate::adapters::v1::{optional_from_raw, pack_v1, root_node_from_raw, sampli
 use crate::contract::{Attr, ExtensionTree, Scalar, Value};
 use crate::errors::{join_path, validation, Result};
 use crate::fields::{
-    assert_leaf, assert_no_datasets, check_value, read_fields, require_child, spec, FieldSpec, Raw,
+    assert_leaf, assert_no_datasets, check_value, read_fields, require_child, spec,
+    FieldSpec, Raw, ReadCtx,
 };
 use crate::model::{
     AuthMode, CaseSensitivity, ClientConfig, Combinator, Condition, Evaluation, ExtraAttrs,
     MachineProfile, MinIntegrityLevel, OpcuaConfig, PipeConfig, QueuePolicy, Rule, RuleAction,
     SecurityMode, SecurityPolicy, TriggerConfig, UserAccessLevel,
 };
-use crate::schema_v1::{CLIENT_FIELDS, CONDITION_FIELDS, PIPE_FIELDS, RULE_FIELDS, TRIGGER_FIELDS};
+use crate::schema_v1::{
+    CLIENT_FIELDS, CONDITION_FIELDS, CURRENT_MINOR, PIPE_FIELDS, RULE_FIELDS, TRIGGER_FIELDS,
+};
+use std::cell::RefCell;
+
+type Notes = RefCell<Vec<String>>;
 
 const CLIENT: &str = "Client";
 const PIPE: &str = "Pipe";
 const TRIGGERS: &str = "Triggers";
-
-const LEGACY_INTEGRITY_LEVELS: &[(&str, &str)] = &[
-    ("0x0", "Untrusted"),
-    ("0x0000", "Untrusted"),
-    ("0x1000", "Low"),
-    ("0x2000", "Medium"),
-    ("0x3000", "High"),
-    ("0x4000", "System"),
-    ("0x5000", "ProtectedProcess"),
-];
 
 const CLIENT_KNOWN: &[&str] = &[
     "Server_URL",
@@ -175,8 +171,19 @@ fn float_to_int(v: f64, path: String) -> Result<i64> {
     }
 }
 
-fn extra_of(attrs: &BTreeMap<String, Attr>, known: &[&str], path: &str) -> Result<ExtraAttrs> {
-    Ok(read_fields(attrs, &[], path, known)?.1)
+fn extra_of(
+    attrs: &BTreeMap<String, Attr>,
+    known: &[&str],
+    path: &str,
+    notes: &Notes,
+) -> Result<ExtraAttrs> {
+    let mut warnings = notes.borrow_mut();
+    let mut ctx = ReadCtx {
+        file_minor: 0,
+        reader_minor: CURRENT_MINOR,
+        warnings: &mut warnings,
+    };
+    Ok(read_fields(attrs, &[], path, known, &mut ctx)?.1)
 }
 
 /// A checked value that is not in the model enum means the schema lists and the enums disagree.
@@ -184,7 +191,7 @@ fn to_enum<T>(parse: fn(&str) -> Option<T>, value: &str, path: String) -> Result
     parse(value).ok_or_else(|| validation(path, format!("invalid value {value:?}")))
 }
 
-fn unpack_client(group: &ExtensionTree) -> Result<ClientConfig> {
+fn unpack_client(group: &ExtensionTree, notes: &Notes) -> Result<ClientConfig> {
     assert_leaf(group, CLIENT)?;
     let g = LegacyGroup::new(&group.attrs, CLIENT);
     let field = |name: &str| spec(CLIENT_FIELDS, name);
@@ -206,20 +213,19 @@ fn unpack_client(group: &ExtensionTree) -> Result<ClientConfig> {
             g.at("Machine_Profile"),
         )?)
     };
-    let security_policy = if policy == "None" || policy.is_empty() {
+    let security_policy = if policy.is_empty() {
         SecurityPolicy::Auto
     } else {
+        if policy.eq_ignore_ascii_case("none") {
+            notes.borrow_mut().push(format!(
+                "{}: \"None\" is read as the no-security policy (earlier codec versions read it as Auto)",
+                g.at("Security_Policy")
+            ));
+        }
         let canonical = g.checked_str(field("Security_Policy"), policy)?;
         to_enum(SecurityPolicy::parse, &canonical, g.at("Security_Policy"))?
     };
-    let queue = g.checked_str(
-        field("Queue_Policy"),
-        if queue == "DropOldest" {
-            "DiscardOldest".to_string()
-        } else {
-            queue
-        },
-    )?;
+    let queue = g.checked_str(field("Queue_Policy"), queue)?;
 
     Ok(ClientConfig {
         server_url: str("Server_URL", None)?,
@@ -247,11 +253,11 @@ fn unpack_client(group: &ExtensionTree) -> Result<ClientConfig> {
         session_timeout: u("Session_Timeout", 60000)?,
         sync_loop_interval_initial: u("Sync_Loop_Interval_Initial", 1000)?,
         sync_loop_interval_settled: u("Sync_Loop_Interval_Settled", 30000)?,
-        extra: extra_of(&group.attrs, CLIENT_KNOWN, CLIENT)?,
+        extra: extra_of(&group.attrs, CLIENT_KNOWN, CLIENT, notes)?,
     })
 }
 
-fn unpack_pipe(group: &ExtensionTree) -> Result<PipeConfig> {
+fn unpack_pipe(group: &ExtensionTree, notes: &Notes) -> Result<PipeConfig> {
     assert_leaf(group, PIPE)?;
     let g = LegacyGroup::new(&group.attrs, PIPE);
     let field = |name: &str| spec(PIPE_FIELDS, name);
@@ -264,11 +270,7 @@ fn unpack_pipe(group: &ExtensionTree) -> Result<PipeConfig> {
         &format!("{PIPE}/@Inbound_Rate_Limit"),
         true,
     )?;
-    let mapped = LEGACY_INTEGRITY_LEVELS
-        .iter()
-        .find(|(hex, _)| *hex == level.to_lowercase())
-        .map_or(level, |(_, name)| (*name).to_string());
-    let level = g.checked_str(field("Min_Integrity_Level"), mapped)?;
+    let level = g.checked_str(field("Min_Integrity_Level"), level)?;
     let pipe_name = g.checked_str(
         field("Pipe_Name"),
         g.str("Pipe_Name", Some("\\\\.\\pipe\\opc_ua_client_pipe"))?,
@@ -291,14 +293,11 @@ fn unpack_pipe(group: &ExtensionTree) -> Result<PipeConfig> {
         )?,
         pipe_name,
         user_access_level: to_enum(UserAccessLevel::parse, &access, g.at("User_Access_Level"))?,
-        extra: extra_of(&group.attrs, PIPE_KNOWN, PIPE)?,
+        extra: extra_of(&group.attrs, PIPE_KNOWN, PIPE, notes)?,
     })
 }
 
-fn unpack_triggers(
-    group: Option<&ExtensionTree>,
-    warnings: &mut Vec<String>,
-) -> Result<TriggerConfig> {
+fn unpack_triggers(group: Option<&ExtensionTree>, notes: &Notes) -> Result<TriggerConfig> {
     let Some(group) = group else {
         return Ok(TriggerConfig {
             enabled: false,
@@ -378,7 +377,7 @@ fn unpack_triggers(
         for (action, suffix, value) in sides {
             let rule_label = format!("{label} - {suffix}");
             if signal.is_empty() || value.is_empty() {
-                warnings.push(format!(
+                notes.borrow_mut().push(format!(
                     "{path}: skipped rule \"{rule_label}\": legacy trigger has no signal or value for that action"
                 ));
                 continue;
@@ -407,7 +406,7 @@ fn unpack_triggers(
                     },
                     extra: ExtraAttrs::new(),
                 }],
-                extra: extra_of(&trigger.attrs, TRIGGER_KNOWN, &path)?,
+                extra: extra_of(&trigger.attrs, TRIGGER_KNOWN, &path, notes)?,
             });
             next_id += 1;
         }
@@ -417,7 +416,7 @@ fn unpack_triggers(
         enabled,
         stop_ceiling_layers: stop,
         rules,
-        extra: extra_of(&group.attrs, TRIGGERS_KNOWN, TRIGGERS)?,
+        extra: extra_of(&group.attrs, TRIGGERS_KNOWN, TRIGGERS, notes)?,
     })
 }
 
@@ -431,13 +430,17 @@ pub(crate) fn unpack_legacy(tree: &ExtensionTree) -> Result<OpcuaConfig> {
     {
         return Err(validation(name.as_str(), "unexpected child group"));
     }
-    let mut warnings = Vec::new();
+    let notes = Notes::default();
+    let client = unpack_client(require_child(tree, CLIENT)?, &notes)?;
+    let pipe = unpack_pipe(require_child(tree, PIPE)?, &notes)?;
+    let triggers = unpack_triggers(tree.children.get(TRIGGERS), &notes)?;
+    let extra = extra_of(&tree.attrs, &[], "", &notes)?;
     let config = OpcuaConfig {
-        client: unpack_client(require_child(tree, CLIENT)?)?,
-        pipe: unpack_pipe(require_child(tree, PIPE)?)?,
-        triggers: unpack_triggers(tree.children.get(TRIGGERS), &mut warnings)?,
-        extra: extra_of(&tree.attrs, &[], "")?,
-        warnings: Some(warnings),
+        client,
+        pipe,
+        triggers,
+        extra,
+        warnings: Some(notes.into_inner()),
     };
     pack_v1(&config)?;
     Ok(config)

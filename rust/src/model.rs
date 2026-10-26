@@ -69,10 +69,14 @@ string_enum!(SecurityMode {
 });
 
 string_enum!(
-    /// `Auto` lets the SDK choose; it is stored on disk as an empty string.
+    /// `Auto` lets the SDK choose; it is stored on disk as an empty string. `None` is the OPC UA
+    /// no-security policy (paired with `SecurityMode::None`), a supported option, not a default.
     SecurityPolicy {
         Auto => "Auto",
+        None => "None",
         Basic256Sha256 => "Basic256Sha256",
+        Aes128Sha256RsaOaep => "Aes128_Sha256_RsaOaep",
+        Aes256Sha256RsaPss => "Aes256_Sha256_RsaPss",
         EccNistP256 => "ECC_nistP256",
         EccNistP384 => "ECC_nistP384",
         EccBrainpoolP256r1 => "ECC_brainpoolP256r1",
@@ -120,6 +124,7 @@ string_enum!(CaseSensitivity {
 
 string_enum!(ComparisonOperator {
     Equal => "Equal",
+    NotEqual => "NotEqual",
     GreaterThan => "GreaterThan",
     LessThan => "LessThan",
     GreaterThanOrEqual => "GreaterThanOrEqual",
@@ -137,12 +142,44 @@ pub enum RootNode {
     BrowseName { value: String },
 }
 
+impl RootNode {
+    /// On-disk form: "" for AutoDiscover, otherwise the NodeId or BrowseName text.
+    pub fn to_spec(&self) -> &str {
+        match self {
+            RootNode::AutoDiscover => "",
+            RootNode::NodeId { value } | RootNode::BrowseName { value } => value,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum SamplingInterval {
     ServerNegotiated,
     Fastest,
     Ms { ms: u32 },
+}
+
+impl SamplingInterval {
+    /// On-disk form: -1, 0 or ms. `pack` rejects ms above i32::MAX, so the clamp only applies to
+    /// models that were never packed.
+    pub fn to_spec(&self) -> i32 {
+        match self {
+            SamplingInterval::ServerNegotiated => -1,
+            SamplingInterval::Fastest => 0,
+            SamplingInterval::Ms { ms } => i32::try_from(*ms).unwrap_or(i32::MAX),
+        }
+    }
+}
+
+impl SecurityPolicy {
+    /// On-disk form: "" for Auto (SDK auto-select), never the literal "Auto".
+    pub fn to_spec(self) -> &'static str {
+        match self {
+            SecurityPolicy::Auto => "",
+            other => other.as_str(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

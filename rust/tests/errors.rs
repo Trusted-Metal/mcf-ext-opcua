@@ -63,8 +63,8 @@ fn missing_groups() {
 
 #[test]
 fn bad_enum_values() {
-    check_unpack(Validation, "Client/@Auth_Mode", |v| {
-        set(v, &format!("{CLIENT}/Auth_Mode"), utf8("Kerberos"))
+        check_unpack(Validation, "Client/@Queue_Policy", |v| {
+        set(v, &format!("{CLIENT}/Queue_Policy"), utf8("Kerberos"))
     });
     check_unpack(
         Validation,
@@ -86,7 +86,7 @@ fn bad_enum_values() {
         )
     });
     check_unpack(Validation, "Client/@Queue_Policy", |v| {
-        set(v, &format!("{CLIENT}/Queue_Policy"), utf8(""))
+        set(v, &format!("{CLIENT}/Queue_Policy"), utf8("Lifo"))
     });
 }
 

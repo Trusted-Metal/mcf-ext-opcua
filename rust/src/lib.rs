@@ -91,6 +91,10 @@ fn major_of(version: &str, path: &str) -> Result<Option<u64>> {
     }
 }
 
+fn minor_of(version: &str) -> u32 {
+    version.split_once('.').and_then(|(_, m)| m.parse().ok()).unwrap_or(0)
+}
+
 /// Unpacks a `1.x` tree (unknown attributes go to `extra`) or the legacy layout.
 pub fn unpack(tree: &ExtensionTree) -> Result<OpcuaConfig> {
     let Some(attr) = tree.attrs.get(SCHEMA_VERSION_ATTR) else {
@@ -107,7 +111,7 @@ pub fn unpack(tree: &ExtensionTree) -> Result<OpcuaConfig> {
             format!("unsupported schema version \"{version}\""),
         ));
     }
-    unpack_v1(tree)
+    unpack_v1(tree, minor_of(version))
 }
 
 /// Packs to `opts.target_schema` (default: current). Packing the legacy layout is not

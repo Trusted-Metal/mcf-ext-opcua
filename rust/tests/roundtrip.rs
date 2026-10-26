@@ -10,6 +10,11 @@ use mcf_ext_opcua::{
     SecurityPolicy, TriggerConfig, UserAccessLevel, Value,
 };
 
+fn without_warnings(mut c: OpcuaConfig) -> OpcuaConfig {
+    c.warnings = None;
+    c
+}
+
 fn attr(dtype: Dtype, scalar: Scalar) -> Attr {
     Attr {
         dtype,
@@ -157,7 +162,7 @@ fn at<'a>(tree: &'a ExtensionTree, path: &[&str], name: &str) -> &'a Attr {
 #[test]
 fn pack_then_unpack_equals_the_original() {
     let config = rich_config();
-    assert_eq!(unpack_ok(&pack_ok(&config)), config);
+    assert_eq!(without_warnings(unpack_ok(&pack_ok(&config))), config);
 }
 
 #[test]
@@ -248,7 +253,7 @@ fn writes_every_defaulted_attribute_and_the_sentinel_forms() {
         at(&t2, &["Trigger"], "Trigger_Stop_Ceiling_Layers"),
         &attr(Dtype::U32, Scalar::U32(0))
     );
-    assert_eq!(unpack_ok(&t2), c);
+    assert_eq!(without_warnings(unpack_ok(&t2)), c);
 }
 
 #[test]
@@ -260,7 +265,7 @@ fn security_policy_auto_is_written_as_empty() {
         at(&t, &["Client"], "Security_Policy"),
         &attr(Dtype::Utf8, Scalar::Utf8(String::new()))
     );
-    assert_eq!(unpack_ok(&t), c);
+    assert_eq!(without_warnings(unpack_ok(&t)), c);
 }
 
 #[test]

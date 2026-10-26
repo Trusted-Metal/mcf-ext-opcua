@@ -27,7 +27,7 @@ fn unpack_tree_equals_model() {
     for name in v1_2_cases() {
         let rel = format!("v1_2/{name}");
         assert_eq!(
-            unpack_ok(&fixture_tree(&rel)),
+            without_warnings(unpack_ok(&fixture_tree(&rel))),
             fixture_model(&rel),
             "{name}"
         );
@@ -40,7 +40,11 @@ fn pack_model_re_unpacks_to_model() {
         let rel = format!("v1_2/{name}");
         let packed = pack_ok(&fixture_model(&rel));
         assert_eq!(peek_schema_version(&packed), "1.2", "{name}");
-        assert_eq!(unpack_ok(&packed), fixture_model(&rel), "{name}");
+        assert_eq!(
+            without_warnings(unpack_ok(&packed)),
+            fixture_model(&rel),
+            "{name}"
+        );
     }
 }
 
@@ -73,4 +77,10 @@ fn lenient_read_normalises_casing_sentinels_ordering_and_unknown_minor() {
         packed.attrs["Opcua_Schema_Version"].value,
         Value::Scalar(Scalar::Utf8("1.2".to_string()))
     );
+}
+
+/// Warnings are diagnostics about how a tree was read, not model content
+fn without_warnings(mut c: mcf_ext_opcua::OpcuaConfig) -> mcf_ext_opcua::OpcuaConfig {
+    c.warnings = None;
+    c
 }
