@@ -15,7 +15,9 @@ mod fields;
 mod model;
 mod number;
 mod schema_v1;
+mod message;
 
+pub use message::{ClientConfigMessage, CLIENT_CONFIG_MESSAGE_TYPE};
 pub use contract::{
     Attr, Dataset, Dtype, ExtensionTree, Scalar, Value, EXTENSION_NAME, REQUIRES_CONTRACT,
 };

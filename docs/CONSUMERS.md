@@ -33,6 +33,7 @@ group to client-proj over the pipe.
 Capture holds the unpacked model as `LoadedConfig.opcua: Option<OpcuaConfig>`.
 
 ### Loading
+
 - No `TM_OPCUA` group: `opcua = None`, pipe and triggers off.
 - Invalid `TM_OPCUA` (any unpack error): `opcua = None`, an error log with the code and path, and
   the rest of the machine config (lasers, correction data, build info) still loads. A bad OPC UA
@@ -42,6 +43,7 @@ Capture holds the unpacked model as `LoadedConfig.opcua: Option<OpcuaConfig>`.
   is being switched from its earlier highest-first order, see REVIEW_NOTES.)
 
 ### Pipe
+
 | Config | Capture behaviour |
 | --- | --- |
 | `Pipe_Enabled` | Starts the listener; a reload to a config without an enabled pipe waits instead of recreating it |

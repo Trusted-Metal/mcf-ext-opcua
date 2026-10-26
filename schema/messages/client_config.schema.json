@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mcf-ext-opcua/messages/client_config",
+  "title": "TM_OPCUA client_config message",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["type", "schema", "auth_mode", "server_url", "security_mode", "security_policy"],
+  "properties": {
+    "type": { "const": "client_config" },
+    "schema": { "type": "string", "pattern": "^1\\.[0-9]+$" },
+    "auth_mode": { "enum": ["Anonymous", "UsernamePassword", "Certificate"] },
+    "bfs_max_depth": { "type": "integer", "minimum": 0 },
+    "keep_alive_count": { "type": "integer", "minimum": 0 },
+    "lifetime_count": { "type": "integer", "minimum": 0 },
+    "machine_profile": { "enum": ["", "Aconity", "Eos"] },
+    "publish_interval": { "type": "integer", "minimum": 0 },
+    "queue_policy": { "enum": ["DiscardOldest", "KeepOldest"] },
+    "queue_size_data_change": { "type": "integer", "minimum": 0 },
+    "queue_size_events": { "type": "integer", "minimum": 0 },
+    "reconnect_interval": { "type": "integer", "minimum": 0 },
+    "root_node": { "type": "string" },
+    "sampling_interval": { "type": "integer", "minimum": -1 },
+    "security_mode": { "enum": ["None", "Sign", "SignAndEncrypt"] },
+    "security_policy": {
+      "enum": ["", "None", "Basic256Sha256", "Aes128_Sha256_RsaOaep", "Aes256_Sha256_RsaPss",
+               "ECC_nistP256", "ECC_nistP384", "ECC_brainpoolP256r1", "ECC_brainpoolP384r1"]
+    },
+    "server_url": { "type": "string" },
+    "session_timeout": { "type": "integer", "minimum": 0 },
+    "sync_loop_interval_initial": { "type": "integer", "minimum": 0 },
+    "sync_loop_interval_settled": { "type": "integer", "minimum": 0 }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "type": "client_config",
+  "schema": "1.2",
+  "auth_mode": "Anonymous",
+  "bfs_max_depth": 16,
+  "keep_alive_count": 240,
+  "lifetime_count": 2400,
+  "machine_profile": "",
+  "publish_interval": 250,
+  "queue_policy": "DiscardOldest",
+  "queue_size_data_change": 10,
+  "queue_size_events": 10,
+  "reconnect_interval": 1000,
+  "root_node": "",
+  "sampling_interval": 250,
+  "security_mode": "None",
+  "security_policy": "",
+  "server_url": "opc.tcp://localhost:4840",
+  "session_timeout": 60000,
+  "sync_loop_interval_initial": 1000,
+  "sync_loop_interval_settled": 30000
+}

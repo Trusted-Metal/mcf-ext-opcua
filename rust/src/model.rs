@@ -4,6 +4,7 @@
 //! The serde form is camelCase and is the same as `fixtures/**/model.json`.
 
 use std::collections::BTreeMap;
+use std::fmt;
 
 use serde::de::{self, Deserializer};
 use serde::ser::Serializer;
