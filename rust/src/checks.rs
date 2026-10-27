@@ -48,21 +48,55 @@ pub(crate) fn coherence(c: &OpcuaConfig) -> Result<()> {
 }
 
 pub(crate) fn advise(c: &OpcuaConfig, out: &mut Vec<Warning>) {
-    let mut note = |kind, path: String, message: String| out.push(Warning { kind, path, message });
+    let mut note = |kind, path: String, message: String| {
+        out.push(Warning {
+            kind,
+            path,
+            message,
+        })
+    };
     let (cl, p, t) = (&c.client, &c.pipe, &c.triggers);
 
     // ---- advisory: allowed, weaker than the preferred posture ----
     if cl.security_mode == SecurityMode::None {
-        note(WarningKind::Advisory, client_at("Security_Mode"), "None: OPC UA messages are not signed or encrypted".into());
+        note(
+            WarningKind::Advisory,
+            AT_SECURITY_MODE.into(),
+            "None: OPC UA messages are not signed or encrypted".into(),
+        );
     }
-    if matches!(p.user_access_level, UserAccessLevel::AnyLocalUser | UserAccessLevel::Unrestricted) {
-        note(WarningKind::Advisory, pipe_at("User_Access_Level"), format!("{}: the pipe accepts other local users", p.user_access_level.as_str()));
+    if matches!(
+        p.user_access_level,
+        UserAccessLevel::AnyLocalUser | UserAccessLevel::Unrestricted
+    ) {
+        note(
+            WarningKind::Advisory,
+            pipe_at("User_Access_Level"),
+            format!(
+                "{}: the pipe accepts other local users",
+                p.user_access_level.as_str()
+            ),
+        );
     }
-    if matches!(p.min_integrity_level, MinIntegrityLevel::Untrusted | MinIntegrityLevel::Low) {
-        note(WarningKind::Advisory, pipe_at("Min_Integrity_Level"), format!("{}: low-integrity processes may connect", p.min_integrity_level.as_str()));
+    if matches!(
+        p.min_integrity_level,
+        MinIntegrityLevel::Untrusted | MinIntegrityLevel::Low
+    ) {
+        note(
+            WarningKind::Advisory,
+            pipe_at("Min_Integrity_Level"),
+            format!(
+                "{}: low-integrity processes may connect",
+                p.min_integrity_level.as_str()
+            ),
+        );
     }
     if p.max_inbound_message_size == 0 {
-        note(WarningKind::Advisory, pipe_at("Max_Inbound_Message_Size"), "0: no message size limit".into());
+        note(
+            WarningKind::Advisory,
+            pipe_at("Max_Inbound_Message_Size"),
+            "0: no message size limit".into(),
+        );
     }
 
     // ---- suspicious: legal, very likely a mistake ----
@@ -76,13 +110,24 @@ pub(crate) fn advise(c: &OpcuaConfig, out: &mut Vec<Warning>) {
         ("BFS_Max_Depth", cl.bfs_max_depth),
     ] {
         if v == 0 {
-            note(WarningKind::Suspicious, format!("Client/@{name}"), "0 is almost certainly unintended".into());
+            note(
+                WarningKind::Suspicious,
+                client_at(name),
+                "0 is almost certainly unintended".into(),
+            );
         }
     }
     if p.buffer_size == 0 {
-        note(WarningKind::Suspicious, pipe_at("Buffer_Size"), "0: the pipe has no buffer".into());
+        note(
+            WarningKind::Suspicious,
+            pipe_at("Buffer_Size"),
+            "0: the pipe has no buffer".into(),
+        );
     }
-    if cl.lifetime_count < cl.keep_alive_count.saturating_mul(3) {
+    if cl.lifetime_count
+        < cl.keep_alive_count
+            .saturating_mul(MIN_LIFETIME_PER_KEEPALIVE)
+    {
         note(
             WarningKind::Suspicious,
             client_at("Lifetime_Count"),
@@ -91,32 +136,58 @@ pub(crate) fn advise(c: &OpcuaConfig, out: &mut Vec<Warning>) {
     }
     let url = cl.server_url.to_ascii_lowercase();
     if !OPC_UA_URL_SCHEMES.iter().any(|s| url.starts_with(s)) {
-        note(WarningKind::Suspicious, client_at("Server_URL"), format!("{:?} is not an OPC UA endpoint URL", cl.server_url));
+        note(
+            WarningKind::Suspicious,
+            client_at("Server_URL"),
+            format!("{:?} is not an OPC UA endpoint URL", cl.server_url),
+        );
     }
     if p.pipe_name.len() > WIN_PIPE_NAME_MAX {
-        note(WarningKind::Suspicious, pipe_at("Pipe_Name"), format!("longer than Windows' {WIN_PIPE_NAME_MAX}-character limit"));
+        note(
+            WarningKind::Suspicious,
+            pipe_at("Pipe_Name"),
+            format!("longer than Windows' {WIN_PIPE_NAME_MAX}-character limit"),
+        );
     }
 
     // ---- triggers ----
     for r in &t.rules {
         let rule_path = format!("Trigger/{}", r.label);
         if r.enabled && !r.conditions.iter().any(|c| c.enabled) {
-            note(WarningKind::Suspicious, rule_path.clone(), "enabled, but every condition is disabled: it can never fire".into());
+            note(
+                WarningKind::Suspicious,
+                rule_path.clone(),
+                "enabled, but every condition is disabled: it can never fire".into(),
+            );
         }
         for c in r.conditions.iter().filter(|c| c.enabled) {
             let cond_path = format!("{rule_path}/{}", c.label);
             if c.signal.trim().is_empty() {
-                note(WarningKind::Suspicious, format!("{cond_path}/@Signal"), "empty: consumers skip this condition".into());
+                note(
+                    WarningKind::Suspicious,
+                    format!("{cond_path}/@Signal"),
+                    "empty: consumers skip this condition".into(),
+                );
             }
             if let Evaluation::String { value, .. } = &c.evaluation {
                 if value.is_empty() {
-                    note(WarningKind::Suspicious, format!("{cond_path}/@Value"), "empty: only an empty signal value matches".into());
+                    note(
+                        WarningKind::Suspicious,
+                        format!("{cond_path}/@Value"),
+                        "empty: only an empty signal value matches".into(),
+                    );
                 }
             }
         }
     }
-    let enabled_start = t.rules.iter().any(|r| r.enabled && r.action == RuleAction::CaptureStart);
-    let enabled_stop = t.rules.iter().any(|r| r.enabled && r.action == RuleAction::CaptureStop);
+    let enabled_start = t
+        .rules
+        .iter()
+        .any(|r| r.enabled && r.action == RuleAction::CaptureStart);
+    let enabled_stop = t
+        .rules
+        .iter()
+        .any(|r| r.enabled && r.action == RuleAction::CaptureStop);
     if t.enabled && enabled_start && !enabled_stop && t.stop_ceiling_layers.is_none() {
         note(
             WarningKind::Advisory,

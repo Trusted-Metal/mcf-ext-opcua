@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::contract::ExtensionTree;
 use crate::errors::{join_path, validation, Result};
 use crate::fields::{
-    assert_leaf, assert_no_datasets, is_label, read_fields, require_child, write_fields, name_key,
+    assert_leaf, assert_no_datasets, is_label, name_key, read_fields, require_child, write_fields,
     Raw, ReadCtx, Values,
 };
 use crate::model::{
@@ -312,7 +312,10 @@ fn unpack_rule(label: &str, group: &ExtensionTree, ctx: &mut ReadCtx<'_>) -> Res
 
     let combinator = v.str("Combinator");
     if conditions.len() > 1 {
-        let present = group.attrs.keys().any(|k| name_key(k) == name_key("Combinator"));
+        let present = group
+            .attrs
+            .keys()
+            .any(|k| name_key(k) == name_key("Combinator"));
         if !present {
             return Err(validation(
                 attr_path(&path, "Combinator"),
@@ -321,7 +324,8 @@ fn unpack_rule(label: &str, group: &ExtensionTree, ctx: &mut ReadCtx<'_>) -> Res
         }
         if combinator.is_empty() {
             ctx.warn(
-                WarningKind::Advisory, &attr_path(&path, "Combinator"),
+                WarningKind::Advisory,
+                &attr_path(&path, "Combinator"),
                 format!(
                     "blank with {} conditions: consumers evaluate only one of them",
                     conditions.len()
@@ -401,7 +405,13 @@ pub(crate) fn unpack_v1(tree: &ExtensionTree, file_minor: u32) -> Result<OpcuaCo
     let client = unpack_client(require_child(tree, CLIENT)?, &mut ctx)?;
     let pipe = unpack_pipe(require_child(tree, PIPE)?, &mut ctx)?;
     let triggers = unpack_triggers(require_child(tree, TRIGGER)?, &mut ctx)?;
-    let mut config = OpcuaConfig { client, pipe, triggers, extra, warnings: None };
+    let mut config = OpcuaConfig {
+        client,
+        pipe,
+        triggers,
+        extra,
+        warnings: None,
+    };
     crate::checks::coherence(&config)?;
     crate::checks::advise(&config, &mut warnings);
     config.warnings = (!warnings.is_empty()).then_some(warnings);

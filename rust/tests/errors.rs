@@ -63,7 +63,7 @@ fn missing_groups() {
 
 #[test]
 fn bad_enum_values() {
-        check_unpack(Validation, "Client/@Queue_Policy", |v| {
+    check_unpack(Validation, "Client/@Queue_Policy", |v| {
         set(v, &format!("{CLIENT}/Queue_Policy"), utf8("Kerberos"))
     });
     check_unpack(
@@ -79,11 +79,7 @@ fn bad_enum_values() {
     );
     // User_Access_Level is case-sensitive.
     check_unpack(Validation, "Pipe/@User_Access_Level", |v| {
-        set(
-            v,
-            &format!("{PIPE}/User_Access_Level"),
-            utf8("Everyone"),
-        )
+        set(v, &format!("{PIPE}/User_Access_Level"), utf8("Everyone"))
     });
     check_unpack(Validation, "Client/@Queue_Policy", |v| {
         set(v, &format!("{CLIENT}/Queue_Policy"), utf8("Lifo"))
@@ -114,7 +110,7 @@ fn wrong_dtype() {
         set(
             v,
             &format!("{CLIENT}/Publish_Interval"),
-            json!({"dtype": "i64", "value": "5"}),
+            json!({"dtype": "utf8", "value": "5"}),
         )
     });
 }

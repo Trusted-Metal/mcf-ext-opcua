@@ -70,7 +70,9 @@ impl ClientConfig {
             bfs_max_depth: *bfs_max_depth,
             keep_alive_count: *keep_alive_count,
             lifetime_count: *lifetime_count,
-            machine_profile: machine_profile.map_or("", MachineProfile::as_str).to_string(),
+            machine_profile: machine_profile
+                .map_or("", MachineProfile::as_str)
+                .to_string(),
             publish_interval: *publish_interval,
             queue_policy: queue_policy.as_str().to_string(),
             queue_size_data_change: *queue_size_data_change,

@@ -156,6 +156,7 @@ impl FieldSpec {
         Self {
             default: Some(default),
             presence: Presence::Warned,
+            blank: Blank::Value,
             ..Self::req(name, dtype)
         }
     }
@@ -216,7 +217,7 @@ pub(crate) fn check_value(f: &FieldSpec, v: Raw, path: &str) -> Result<Raw> {
                 match f.blank {
                     Blank::Value | Blank::ModeUnused => return Ok(Raw::Str(out)),
                     Blank::Default(d) => out = d.to_string(),
-                    Blank::Invalid => {}
+                    Blank::Invalid => return Err(validation(here, "must not be blank")),
                 }
             }
             if let Some(canonical) = f.normalize.and_then(|n| n(&out)) {
@@ -428,7 +429,7 @@ impl ReadCtx<'_> {
 /// Note for a read value that differs from what was stored. Casing is reported too: the value is
 /// unambiguous, but a non-canonical spelling means the file was not written by a validating tool.
 pub(crate) fn change_note(before: &str, after: &str) -> Option<(WarningKind, String)> {
-    if before == after || before.eq_ignore_ascii_case(after) {
+    if before == after {
         None
     } else if before.is_empty() {
         Some((WarningKind::Defaulted, format!("blank, read as {after:?}")))
@@ -461,8 +462,8 @@ fn osa_distance(a: &str, b: &str) -> usize {
     for (i, row) in d.iter_mut().enumerate() {
         row[0] = i;
     }
-    for j in 0..=b.len() {
-        d[0][j] = j;
+    for (j, cell) in d[0].iter_mut().enumerate() {
+        *cell = j;
     }
     for i in 1..=a.len() {
         for j in 1..=b.len() {

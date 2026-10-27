@@ -95,3 +95,8 @@ pub fn rename_child(v: &mut Json, parent_pointer: &str, from: &str, to: &str) {
     let moved = children.remove(from).unwrap();
     children.insert(to.to_string(), moved);
 }
+
+pub fn without_warnings(mut c: OpcuaConfig) -> OpcuaConfig {
+    c.warnings = None;
+    c
+}

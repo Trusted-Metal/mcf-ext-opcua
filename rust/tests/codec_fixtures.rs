@@ -78,9 +78,3 @@ fn lenient_read_normalises_casing_sentinels_ordering_and_unknown_minor() {
         Value::Scalar(Scalar::Utf8("1.2".to_string()))
     );
 }
-
-/// Warnings are diagnostics about how a tree was read, not model content
-fn without_warnings(mut c: mcf_ext_opcua::OpcuaConfig) -> mcf_ext_opcua::OpcuaConfig {
-    c.warnings = None;
-    c
-}

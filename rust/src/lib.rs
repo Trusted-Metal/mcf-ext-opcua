@@ -8,17 +8,16 @@
 //! - [`pack`] always writes the current schema ([`CURRENT_SCHEMA_VERSION`]).
 
 mod adapters;
+mod checks;
 pub mod contract;
 mod defaults;
 mod errors;
 mod fields;
+mod message;
 mod model;
 mod number;
 mod schema_v1;
-mod message;
-mod checks;
 
-pub use message::{ClientConfigMessage, CLIENT_CONFIG_MESSAGE_TYPE};
 pub use contract::{
     Attr, Dataset, Dtype, ExtensionTree, Scalar, Value, EXTENSION_NAME, REQUIRES_CONTRACT,
 };
@@ -26,6 +25,7 @@ pub use defaults::{
     suggested_defaults, SuggestedClientDefaults, SuggestedDefaults, SuggestedPipeDefaults,
 };
 pub use errors::{ErrorCode, ExtensionError, Result};
+pub use message::{ClientConfigMessage, CLIENT_CONFIG_MESSAGE_TYPE};
 pub use model::*;
 pub use schema_v1::CURRENT_SCHEMA_VERSION;
 
@@ -95,7 +95,10 @@ fn major_of(version: &str, path: &str) -> Result<Option<u64>> {
 }
 
 fn minor_of(version: &str) -> u32 {
-    version.split_once('.').and_then(|(_, m)| m.parse().ok()).unwrap_or(0)
+    version
+        .split_once('.')
+        .and_then(|(_, m)| m.parse().ok())
+        .unwrap_or(0)
 }
 
 /// Unpacks a `1.x` tree (unknown attributes go to `extra`) or the legacy layout.

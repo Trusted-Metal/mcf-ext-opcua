@@ -7,8 +7,8 @@ use crate::adapters::v1::{optional_from_raw, pack_v1, root_node_from_raw, sampli
 use crate::contract::{Attr, ExtensionTree, Scalar, Value};
 use crate::errors::{join_path, validation, Result};
 use crate::fields::{
-    assert_leaf, assert_no_datasets, check_value, read_fields, require_child, spec,
-    FieldSpec, Raw, ReadCtx,
+    assert_leaf, assert_no_datasets, check_value, read_fields, require_child, spec, FieldSpec, Raw,
+    ReadCtx,
 };
 use crate::model::{
     AuthMode, CaseSensitivity, ClientConfig, Combinator, Condition, Evaluation, ExtraAttrs,
@@ -219,7 +219,7 @@ fn unpack_client(group: &ExtensionTree, notes: &Notes) -> Result<ClientConfig> {
         SecurityPolicy::Auto
     } else {
         if policy.eq_ignore_ascii_case("none") {
-            notes.borrow_mut().push(Warning { 
+            notes.borrow_mut().push(Warning {
                 kind: WarningKind::Conversion,
                 path: g.at("Security_Policy"),
                 message: "\"None\" is read as the no-security policy (earlier codec versions read it as Auto)".into(),

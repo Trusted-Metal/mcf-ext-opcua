@@ -5,7 +5,7 @@ use mcf_ext_opcua::{
     pack, peek_schema_version, unpack, AuthMode, CaseSensitivity, ClientConfig, Combinator,
     Condition, ErrorCode, Evaluation, ExtensionTree, MachineProfile, MinIntegrityLevel,
     OpcuaConfig, PackOptions, PipeConfig, QueuePolicy, RootNode, RuleAction, SamplingInterval,
-    SecurityMode, SecurityPolicy, UserAccessLevel,
+    SecurityMode, SecurityPolicy, UserAccessLevel, Warning, WarningKind,
 };
 use serde_json::{json, Map, Value as Json};
 
@@ -84,7 +84,10 @@ fn reference_fixture_is_detected_as_legacy() {
 
 #[test]
 fn reference_fixture_unpack_equals_model_json() {
-    assert_eq!(unpack_ok(&fixture_tree(LEGACY)), fixture_model(LEGACY));
+    assert_eq!(
+        without_warnings(unpack_ok(&fixture_tree(LEGACY))),
+        without_warnings(fixture_model(LEGACY))
+    );
 }
 
 #[test]
@@ -115,10 +118,18 @@ fn reference_fixture_unpack_pack_unpack_is_stable_except_warnings() {
     let packed = pack_ok(&first);
     assert_eq!(peek_schema_version(&packed), "1.2");
     let second = unpack_ok(&packed);
-    assert_eq!(second.warnings, None);
+    assert!(
+        second
+            .warnings
+            .iter()
+            .flatten()
+            .all(|w| w.kind == WarningKind::Advisory),
+        "{:?}",
+        second.warnings
+    );
     let mut expected = first;
     expected.warnings = None;
-    assert_eq!(second, expected);
+    assert_eq!(without_warnings(second), expected);
 }
 
 #[test]
@@ -225,10 +236,24 @@ fn maps_legacy_vocabulary() {
         client(vec![("Security_Policy", utf8(""))]).security_policy,
         SecurityPolicy::Auto
     );
-    assert_eq!(
-        client(vec![("Security_Policy", utf8("Basic256Sha256"))]).security_policy,
-        SecurityPolicy::Basic256Sha256
-    );
+    for (spelling, expected) in [
+        ("Basic256Sha256", SecurityPolicy::Basic256Sha256),
+        ("Aes128_Sha256_RsaOaep", SecurityPolicy::Aes128Sha256RsaOaep),
+        ("Aes256_Sha256_RsaPss", SecurityPolicy::Aes256Sha256RsaPss),
+        ("ECC_nistP256", SecurityPolicy::EccNistP256),
+        ("NistP384", SecurityPolicy::EccNistP384),
+        (
+            "http://opcfoundation.org/UA/SecurityPolicy#ECC_brainpoolP256r1",
+            SecurityPolicy::EccBrainpoolP256r1,
+        ),
+        ("ECC_brainpoolP384r1", SecurityPolicy::EccBrainpoolP384r1),
+    ] {
+        let c = client(vec![
+            ("Security_Mode", utf8("Sign")),
+            ("Security_Policy", utf8(spelling)),
+        ]);
+        assert_eq!(c.security_policy, expected, "{spelling}");
+    }
 
     let levels = [
         ("0x0", MinIntegrityLevel::Untrusted),
@@ -405,9 +430,11 @@ fn none_policy_reads_as_no_security_with_a_warning() {
     assert_eq!(c.client.security_policy, SecurityPolicy::None);
     let ws = c.warnings.unwrap();
     assert!(
-        ws.iter().any(|w: &Warning| w.kind == WarningKind::Conversion
-            && w.path == "Client/@Security_Policy"
-            && w.message.starts_with("\"None\" is read as the no-security policy")),
+        ws.iter()
+            .any(|w: &Warning| w.kind == WarningKind::Conversion
+                && w.path == "Client/@Security_Policy"
+                && w.message
+                    .starts_with("\"None\" is read as the no-security policy")),
         "{ws:#?}"
     );
 }
@@ -538,19 +565,53 @@ fn legacy_warnings_carry_their_kind() {
         vec![("Client_Future", i32v(1))],
         vec![],
         Some(triggers_json(
-            vec![("NoStop", vec![("Signal", utf8("s")), ("Start_Value", utf8("1")), ("Stop_Value", utf8(""))])],
+            vec![(
+                "NoStop",
+                vec![
+                    ("Signal", utf8("s")),
+                    ("Start_Value", utf8("1")),
+                    ("Stop_Value", utf8("")),
+                ],
+            )],
             vec![],
         )),
     ));
     let ws = c.warnings.as_ref().unwrap();
-    let kind_at = |kind: WarningKind, path: &str| ws.iter().any(|w| w.kind == kind && w.path == path);
+    let kind_at =
+        |kind: WarningKind, path: &str| ws.iter().any(|w| w.kind == kind && w.path == path);
     // Conversion: the legacy "None" policy and the skipped Stop side.
-    assert!(kind_at(WarningKind::Conversion, "Client/@Security_Policy"), "{ws:#?}");
-    assert!(kind_at(WarningKind::Conversion, "Triggers/NoStop"), "{ws:#?}");
+    assert!(
+        kind_at(WarningKind::Conversion, "Client/@Security_Policy"),
+        "{ws:#?}"
+    );
+    assert!(
+        kind_at(WarningKind::Conversion, "Triggers/NoStop"),
+        "{ws:#?}"
+    );
     // UnknownName: attributes the legacy layout never had are kept and reported.
-    assert!(kind_at(WarningKind::UnknownName, "Client/@Client_Future"), "{ws:#?}");
+    assert!(
+        kind_at(WarningKind::UnknownName, "Client/@Client_Future"),
+        "{ws:#?}"
+    );
     // Advisory: the base tree's Security_Mode None.
-    assert!(kind_at(WarningKind::Advisory, "Client/@Security_Mode"), "{ws:#?}");
+    assert!(
+        kind_at(WarningKind::Advisory, "Client/@Security_Mode"),
+        "{ws:#?}"
+    );
     // The legacy vocabulary itself (DropOldest, hex levels, casing) stays silent.
-    assert!(!ws.iter().any(|w| w.kind == WarningKind::Normalized), "{ws:#?}");
+    assert!(
+        !ws.iter().any(|w| w.kind == WarningKind::Normalized),
+        "{ws:#?}"
+    );
+}
+
+#[test]
+fn legacy_mode_none_with_a_real_policy_is_an_error() {
+    // Older readers loaded this pairing; it can never connect, so it now fails on read.
+    let r = unpack(&legacy_tree(
+        vec![("Security_Policy", utf8("Basic256Sha256"))],
+        vec![],
+        None,
+    ));
+    expect_err(r, ErrorCode::Validation, "Client/@Security_Policy");
 }

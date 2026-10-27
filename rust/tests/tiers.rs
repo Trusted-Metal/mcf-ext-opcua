@@ -41,7 +41,12 @@ fn canonical_fixture_reads_cleanly_apart_from_its_deliberate_extras() {
     let c = unpack_ok(&rich_tree());
     let unknown = of_kind(&c.warnings, WarningKind::UnknownName);
     assert_eq!(unknown.len(), RICH_EXTRAS, "{unknown:#?}");
-    assert!(unknown.iter().all(|w| w.contains("unknown attribute, kept but not used")), "{unknown:#?}");
+    assert!(
+        unknown
+            .iter()
+            .all(|w| w.contains("unknown attribute, kept but not used")),
+        "{unknown:#?}"
+    );
     assert_eq!(reads(&c.warnings), Vec::<String>::new());
 }
 
@@ -58,18 +63,30 @@ fn missing_security_field_is_an_error() {
 fn missing_evaluation_mode_is_an_error() {
     let mut t = rich_tree();
     remove(&mut t, &LASER_ON, "Evaluation_Mode");
-    expect_err(unpack(&t), ErrorCode::Validation, "Trigger/Job Start/Laser On/@Evaluation_Mode");
+    expect_err(
+        unpack(&t),
+        ErrorCode::Validation,
+        "Trigger/Job Start/Laser On/@Evaluation_Mode",
+    );
 }
 
 #[test]
 fn missing_mode_used_field_is_an_error() {
     let mut t = rich_tree();
     remove(&mut t, &LASER_ON, "Case_Sensitivity");
-    expect_err(unpack(&t), ErrorCode::Validation, "Trigger/Job Start/Laser On/@Case_Sensitivity");
+    expect_err(
+        unpack(&t),
+        ErrorCode::Validation,
+        "Trigger/Job Start/Laser On/@Case_Sensitivity",
+    );
 
     let mut t = rich_tree();
     remove(&mut t, &OXYGEN, "Comparison_Operator");
-    expect_err(unpack(&t), ErrorCode::Validation, "Trigger/Job Start/Oxygen High/@Comparison_Operator");
+    expect_err(
+        unpack(&t),
+        ErrorCode::Validation,
+        "Trigger/Job Start/Oxygen High/@Comparison_Operator",
+    );
 }
 
 #[test]
@@ -82,15 +99,25 @@ fn missing_mode_unused_and_cosmetic_fields_default_with_a_warning() {
     let c = unpack_ok(&t);
     let defaulted = of_kind(&c.warnings, WarningKind::Defaulted);
     assert_eq!(defaulted.len(), 4, "{defaulted:#?}");
-    assert!(has(&defaulted, "Trigger/Job Start/@Cooldown_Period: missing, read as 0"));
-    assert!(has(&defaulted, "Laser On/@Comparison_Operator: missing, read as \"Equal\""));
+    assert!(has(
+        &defaulted,
+        "Trigger/Job Start/@Cooldown_Period: missing, read as 0"
+    ));
+    assert!(has(
+        &defaulted,
+        "Laser On/@Comparison_Operator: missing, read as \"Equal\""
+    ));
 }
 
 #[test]
 fn missing_combinator_with_several_conditions_is_an_error() {
     let mut t = rich_tree();
     remove(&mut t, &JOB_START, "Combinator");
-    expect_err(unpack(&t), ErrorCode::Validation, "Trigger/Job Start/@Combinator");
+    expect_err(
+        unpack(&t),
+        ErrorCode::Validation,
+        "Trigger/Job Start/@Combinator",
+    );
 }
 
 #[test]
@@ -99,7 +126,10 @@ fn combinator_under_another_spelling_counts_as_present() {
     rename(&mut t, &JOB_START, "Combinator", "combinator");
     let c = unpack_ok(&t);
     assert!(c.triggers.rules[0].combinator.is_some());
-    assert!(has(&reads(&c.warnings), "@combinator: attribute name read as Combinator"));
+    assert!(has(
+        &reads(&c.warnings),
+        "@combinator: attribute name read as Combinator"
+    ));
 }
 
 // ---- blank ----
@@ -117,8 +147,20 @@ fn blank_mode_used_field_reads_as_default_with_a_warning() {
     let mut t = rich_tree();
     set(&mut t, &LASER_ON, "Case_Sensitivity", utf8(""));
     let c = unpack_ok(&t);
-    let cond = c.triggers.rules.iter().flat_map(|r| &r.conditions).find(|c| c.label == "Laser On").unwrap();
-    assert!(matches!(cond.evaluation, Evaluation::String { case_sensitivity: CaseSensitivity::Exact, .. }));
+    let cond = c
+        .triggers
+        .rules
+        .iter()
+        .flat_map(|r| &r.conditions)
+        .find(|c| c.label == "Laser On")
+        .unwrap();
+    assert!(matches!(
+        cond.evaluation,
+        Evaluation::String {
+            case_sensitivity: CaseSensitivity::Exact,
+            ..
+        }
+    ));
     assert!(has(
         &of_kind(&c.warnings, WarningKind::Defaulted),
         "Laser On/@Case_Sensitivity: blank, read as \"Exact\""
@@ -134,7 +176,10 @@ fn blank_security_fields_read_as_strictest() {
     let c = unpack_ok(&t);
     assert_eq!(c.client.security_mode, SecurityMode::SignAndEncrypt);
     assert_eq!(c.pipe.user_access_level, UserAccessLevel::CurrentUserOnly);
-    assert_eq!(c.pipe.min_integrity_level, MinIntegrityLevel::ProtectedProcess);
+    assert_eq!(
+        c.pipe.min_integrity_level,
+        MinIntegrityLevel::ProtectedProcess
+    );
     assert_eq!(of_kind(&c.warnings, WarningKind::Defaulted).len(), 3);
 }
 
@@ -155,7 +200,11 @@ fn blank_values_that_are_values_are_silent() {
 fn blank_action_stays_an_error() {
     let mut t = rich_tree();
     set(&mut t, &JOB_START, "Action", utf8(""));
-    expect_err(unpack(&t), ErrorCode::Validation, "Trigger/Job Start/@Action");
+    expect_err(
+        unpack(&t),
+        ErrorCode::Validation,
+        "Trigger/Job Start/@Action",
+    );
 }
 
 #[test]
@@ -185,15 +234,30 @@ fn consumer_spellings_normalize_with_a_warning() {
     assert_eq!(c.client.queue_policy, QueuePolicy::DiscardOldest);
     assert_eq!(c.pipe.min_integrity_level, MinIntegrityLevel::Medium);
     let normalized = of_kind(&c.warnings, WarningKind::Normalized);
-    assert_eq!(normalized.len(), 5, "casing (EOS -> Eos) is reported too: {normalized:#?}");
-    assert!(has(&normalized, "Client/@Security_Policy: \"NistP384\" read as \"ECC_nistP384\""));
-    assert!(has(&normalized, "Client/@Machine_Profile: \"EOS\" read as \"Eos\" (casing)"));
+    assert_eq!(
+        normalized.len(),
+        5,
+        "casing (EOS -> Eos) is reported too: {normalized:#?}"
+    );
+    assert!(has(
+        &normalized,
+        "Client/@Security_Policy: \"NistP384\" read as \"ECC_nistP384\""
+    ));
+    assert!(has(
+        &normalized,
+        "Client/@Machine_Profile: \"EOS\" read as \"Eos\" (casing)"
+    ));
 }
 
 #[test]
 fn any_casing_reads_with_a_casing_warning() {
     let mut t = rich_tree();
-    set(&mut t, &["Pipe"], "User_Access_Level", utf8("currentuseronly"));
+    set(
+        &mut t,
+        &["Pipe"],
+        "User_Access_Level",
+        utf8("currentuseronly"),
+    );
     let c = unpack_ok(&t);
     assert_eq!(c.pipe.user_access_level, UserAccessLevel::CurrentUserOnly);
     assert!(has(
@@ -208,7 +272,10 @@ fn integral_dtypes_widen_with_a_warning_and_keep_range_checks() {
     set(&mut t, &["Pipe"], "Pipe_Enabled", i32_attr(1));
     let c = unpack_ok(&t);
     assert!(c.pipe.enabled);
-    assert!(has(&of_kind(&c.warnings, WarningKind::Normalized), "Pipe/@Pipe_Enabled: dtype i32 read as u32"));
+    assert!(has(
+        &of_kind(&c.warnings, WarningKind::Normalized),
+        "Pipe/@Pipe_Enabled: dtype i32 read as u32"
+    ));
 
     let mut t = rich_tree();
     set(&mut t, &["Pipe"], "Buffer_Size", i32_attr(-1));
@@ -231,9 +298,24 @@ fn full_range_values_round_trip() {
         set(&mut t, &OXYGEN, "Comparison_Operator", utf8("NotEqual"));
         let c = unpack_ok(&t);
         assert_eq!(c.client.security_policy.as_str(), policy);
-        assert_eq!(unpack_ok(&pack_ok(&c)).client.security_policy, c.client.security_policy);
-        let cond = c.triggers.rules.iter().flat_map(|r| &r.conditions).find(|c| c.label == "Oxygen High").unwrap();
-        assert!(matches!(cond.evaluation, Evaluation::Numeric { operator: ComparisonOperator::NotEqual, .. }));
+        assert_eq!(
+            unpack_ok(&pack_ok(&c)).client.security_policy,
+            c.client.security_policy
+        );
+        let cond = c
+            .triggers
+            .rules
+            .iter()
+            .flat_map(|r| &r.conditions)
+            .find(|c| c.label == "Oxygen High")
+            .unwrap();
+        assert!(matches!(
+            cond.evaluation,
+            Evaluation::Numeric {
+                operator: ComparisonOperator::NotEqual,
+                ..
+            }
+        ));
     }
 }
 
@@ -241,7 +323,11 @@ fn full_range_values_round_trip() {
 fn negative_epsilon_is_an_error() {
     let mut t = rich_tree();
     set(&mut t, &OXYGEN, "Epsilon", f64_attr(-0.5));
-    expect_err(unpack(&t), ErrorCode::Validation, "Trigger/Job Start/Oxygen High/@Epsilon");
+    expect_err(
+        unpack(&t),
+        ErrorCode::Validation,
+        "Trigger/Job Start/Oxygen High/@Epsilon",
+    );
 }
 
 // ---- attribute names ----
@@ -252,7 +338,10 @@ fn case_and_separator_variants_of_a_name_are_accepted_with_a_warning() {
     rename(&mut t, &JOB_START, "Cooldown_Period", "cooldownPeriod");
     let c = unpack_ok(&t);
     assert_eq!(c.triggers.rules[0].cooldown_ms, 500);
-    assert!(has(&reads(&c.warnings), "@cooldownPeriod: attribute name read as Cooldown_Period"));
+    assert!(has(
+        &reads(&c.warnings),
+        "@cooldownPeriod: attribute name read as Cooldown_Period"
+    ));
 }
 
 #[test]
@@ -261,7 +350,10 @@ fn a_duplicate_spelling_is_reported_and_the_canonical_name_wins() {
     set(&mut t, &JOB_START, "cooldown_period", u32_attr(9));
     let c = unpack_ok(&t);
     assert_eq!(c.triggers.rules[0].cooldown_ms, 500);
-    assert!(has(&reads(&c.warnings), "@cooldown_period: duplicate spelling of Cooldown_Period"));
+    assert!(has(
+        &reads(&c.warnings),
+        "@cooldown_period: duplicate spelling of Cooldown_Period"
+    ));
 }
 
 #[test]
@@ -269,12 +361,18 @@ fn a_transposition_is_suggested_not_accepted() {
     let mut t = rich_tree();
     rename(&mut t, &JOB_START, "Cooldown_Period", "Cooldown_Peroid");
     let c = unpack_ok(&t);
-    assert_eq!(c.triggers.rules[0].cooldown_ms, 0, "a near miss is never applied");
+    assert_eq!(
+        c.triggers.rules[0].cooldown_ms, 0,
+        "a near miss is never applied"
+    );
     assert!(has(
         &of_kind(&c.warnings, WarningKind::UnknownName),
         "@Cooldown_Peroid: unknown attribute (did you mean Cooldown_Period?)"
     ));
-    assert!(has(&of_kind(&c.warnings, WarningKind::Defaulted), "@Cooldown_Period: missing, read as 0"));
+    assert!(has(
+        &of_kind(&c.warnings, WarningKind::Defaulted),
+        "@Cooldown_Period: missing, read as 0"
+    ));
 }
 
 #[test]
@@ -291,10 +389,24 @@ fn ambiguous_suggestions_are_not_made() {
     // Three edits from both Sync_Loop_Interval_Initial and Sync_Loop_Interval_Settled: a tie,
     // so no suggestion points at either.
     let mut t = rich_tree();
-    set(&mut t, &["Client"], "Sync_Loop_Interval_Settial", u32_attr(1));
+    set(
+        &mut t,
+        &["Client"],
+        "Sync_Loop_Interval_Settial",
+        u32_attr(1),
+    );
     let unknown = of_kind(&unpack_ok(&t).warnings, WarningKind::UnknownName);
-    assert!(has(&unknown, "Client/@Sync_Loop_Interval_Settial: unknown attribute, kept but not used"), "{unknown:#?}");
-    assert!(!has(&unknown, "Settial: unknown attribute (did you mean"), "{unknown:#?}");
+    assert!(
+        has(
+            &unknown,
+            "Client/@Sync_Loop_Interval_Settial: unknown attribute, kept but not used"
+        ),
+        "{unknown:#?}"
+    );
+    assert!(
+        !has(&unknown, "Settial: unknown attribute (did you mean"),
+        "{unknown:#?}"
+    );
 }
 
 #[test]
@@ -313,7 +425,10 @@ fn unknown_attribute_in_a_newer_minor_file_is_silent() {
     t.attrs.insert("Opcua_Schema_Version".into(), utf8("1.7"));
     set(&mut t, &["Client"], "Brand_New_Setting", utf8("x"));
     // A newer-minor file reports nothing unknown, including the fixture's extras.
-    assert_eq!(of_kind(&unpack_ok(&t).warnings, WarningKind::UnknownName), Vec::<String>::new());
+    assert_eq!(
+        of_kind(&unpack_ok(&t).warnings, WarningKind::UnknownName),
+        Vec::<String>::new()
+    );
 
     t.attrs.insert("Opcua_Schema_Version".into(), utf8("1.2"));
     assert!(has(
@@ -327,7 +442,13 @@ fn unknown_attribute_in_a_newer_minor_file_is_silent() {
 #[test]
 fn to_spec_matches_the_on_disk_encoding() {
     assert_eq!(RootNode::AutoDiscover.to_spec(), "");
-    assert_eq!(RootNode::NodeId { value: "ns=2;s=X".into() }.to_spec(), "ns=2;s=X");
+    assert_eq!(
+        RootNode::NodeId {
+            value: "ns=2;s=X".into()
+        }
+        .to_spec(),
+        "ns=2;s=X"
+    );
     assert_eq!(SamplingInterval::ServerNegotiated.to_spec(), -1);
     assert_eq!(SamplingInterval::Fastest.to_spec(), 0);
     assert_eq!(SamplingInterval::Ms { ms: 250 }.to_spec(), 250);
