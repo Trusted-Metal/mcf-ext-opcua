@@ -18,9 +18,11 @@ use crate::model::{
 use crate::schema_v1::{
     CLIENT_FIELDS, CONDITION_FIELDS, CURRENT_MINOR, PIPE_FIELDS, RULE_FIELDS, TRIGGER_FIELDS,
 };
+use crate::{Warning, WarningKind};
+
 use std::cell::RefCell;
 
-type Notes = RefCell<Vec<String>>;
+type Notes = RefCell<Vec<Warning>>;
 
 const CLIENT: &str = "Client";
 const PIPE: &str = "Pipe";
@@ -217,10 +219,11 @@ fn unpack_client(group: &ExtensionTree, notes: &Notes) -> Result<ClientConfig> {
         SecurityPolicy::Auto
     } else {
         if policy.eq_ignore_ascii_case("none") {
-            notes.borrow_mut().push(format!(
-                "{}: \"None\" is read as the no-security policy (earlier codec versions read it as Auto)",
-                g.at("Security_Policy")
-            ));
+            notes.borrow_mut().push(Warning { 
+                kind: WarningKind::Conversion,
+                path: g.at("Security_Policy"),
+                message: "\"None\" is read as the no-security policy (earlier codec versions read it as Auto)".into(),
+            });
         }
         let canonical = g.checked_str(field("Security_Policy"), policy)?;
         to_enum(SecurityPolicy::parse, &canonical, g.at("Security_Policy"))?
@@ -377,9 +380,11 @@ fn unpack_triggers(group: Option<&ExtensionTree>, notes: &Notes) -> Result<Trigg
         for (action, suffix, value) in sides {
             let rule_label = format!("{label} - {suffix}");
             if signal.is_empty() || value.is_empty() {
-                notes.borrow_mut().push(format!(
-                    "{path}: skipped rule \"{rule_label}\": legacy trigger has no signal or value for that action"
-                ));
+                notes.borrow_mut().push(Warning {
+                    kind: WarningKind::Conversion,
+                    path: path.clone(),
+                    message: format!("skipped rule \"{rule_label}\": legacy trigger has no signal or value for that action")
+                });
                 continue;
             }
             rules.push(Rule {
@@ -435,13 +440,15 @@ pub(crate) fn unpack_legacy(tree: &ExtensionTree) -> Result<OpcuaConfig> {
     let pipe = unpack_pipe(require_child(tree, PIPE)?, &notes)?;
     let triggers = unpack_triggers(tree.children.get(TRIGGERS), &notes)?;
     let extra = extra_of(&tree.attrs, &[], "", &notes)?;
-    let config = OpcuaConfig {
+    let mut config = OpcuaConfig {
         client,
         pipe,
         triggers,
         extra,
-        warnings: Some(notes.into_inner()),
+        warnings: None,
     };
+    crate::checks::advise(&config, &mut notes.borrow_mut());
+    config.warnings = Some(notes.into_inner());
     pack_v1(&config)?;
     Ok(config)
 }

@@ -165,11 +165,8 @@ fn applies_documented_defaults_to_missing_optional_attributes() {
     assert!(!c.triggers.enabled);
     assert!(c.triggers.rules.is_empty());
     assert_eq!(
-        c.warnings,
-        Some(vec![
-            "Client/@Security_Policy: \"None\" is read as the no-security policy (earlier codec versions read it as Auto)"
-                .to_string()
-        ])
+        tree::of_kind(&c.warnings, WarningKind::Conversion),
+        ["Client/@Security_Policy: \"None\" is read as the no-security policy (earlier codec versions read it as Auto)"]
     );
 }
 
@@ -388,9 +385,7 @@ fn reports_skipped_sides_as_warnings() {
     ));
     let labels: Vec<&str> = c.triggers.rules.iter().map(|r| r.label.as_str()).collect();
     assert_eq!(labels, ["NoStop - Start"]);
-    let skipped: Vec<String> = c
-        .warnings
-        .unwrap()
+    let skipped: Vec<String> = tree::of_kind(&c.warnings, WarningKind::Conversion)
         .into_iter()
         .filter(|w| w.contains("skipped rule"))
         .collect();
@@ -410,8 +405,9 @@ fn none_policy_reads_as_no_security_with_a_warning() {
     assert_eq!(c.client.security_policy, SecurityPolicy::None);
     let ws = c.warnings.unwrap();
     assert!(
-        ws.iter().any(|w| w
-            .starts_with("Client/@Security_Policy: \"None\" is read as the no-security policy")),
+        ws.iter().any(|w: &Warning| w.kind == WarningKind::Conversion
+            && w.path == "Client/@Security_Policy"
+            && w.message.starts_with("\"None\" is read as the no-security policy")),
         "{ws:#?}"
     );
 }
@@ -534,4 +530,27 @@ fn legacy_packing_is_not_supported() {
         },
     );
     expect_err(r, ErrorCode::LossyDowngrade, "");
+}
+
+#[test]
+fn legacy_warnings_carry_their_kind() {
+    let c = unpack_ok(&legacy_tree(
+        vec![("Client_Future", i32v(1))],
+        vec![],
+        Some(triggers_json(
+            vec![("NoStop", vec![("Signal", utf8("s")), ("Start_Value", utf8("1")), ("Stop_Value", utf8(""))])],
+            vec![],
+        )),
+    ));
+    let ws = c.warnings.as_ref().unwrap();
+    let kind_at = |kind: WarningKind, path: &str| ws.iter().any(|w| w.kind == kind && w.path == path);
+    // Conversion: the legacy "None" policy and the skipped Stop side.
+    assert!(kind_at(WarningKind::Conversion, "Client/@Security_Policy"), "{ws:#?}");
+    assert!(kind_at(WarningKind::Conversion, "Triggers/NoStop"), "{ws:#?}");
+    // UnknownName: attributes the legacy layout never had are kept and reported.
+    assert!(kind_at(WarningKind::UnknownName, "Client/@Client_Future"), "{ws:#?}");
+    // Advisory: the base tree's Security_Mode None.
+    assert!(kind_at(WarningKind::Advisory, "Client/@Security_Mode"), "{ws:#?}");
+    // The legacy vocabulary itself (DropOldest, hex levels, casing) stays silent.
+    assert!(!ws.iter().any(|w| w.kind == WarningKind::Normalized), "{ws:#?}");
 }

@@ -121,7 +121,7 @@ pub(crate) static CLIENT_FIELDS: &[FieldSpec] = &[
     FieldSpec::req("Lifetime_Count", T::U32),
     FieldSpec::req("Machine_Profile", T::Utf8)
         .one_of(MACHINE_PROFILES)
-        .ignore_case().blank(Blank::Value),
+        .blank(Blank::Value),
     FieldSpec::req("Publish_Interval", T::U32),
     FieldSpec::req("Queue_Policy", T::Utf8)
         .one_of(QUEUE_POLICIES)
@@ -151,7 +151,6 @@ pub(crate) static PIPE_FIELDS: &[FieldSpec] = &[
     FieldSpec::req("Max_Inbound_Message_Size", T::U32),
     FieldSpec::req("Min_Integrity_Level", T::Utf8)
         .one_of(MIN_INTEGRITY_LEVELS)
-        .ignore_case()
         .normalized(canonical_integrity_level)
         .blank(Blank::Default("ProtectedProcess")),
     FieldSpec::req("Pipe_Enabled", T::U32).as_flag(),

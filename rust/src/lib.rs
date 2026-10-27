@@ -16,6 +16,7 @@ mod model;
 mod number;
 mod schema_v1;
 mod message;
+mod checks;
 
 pub use message::{ClientConfigMessage, CLIENT_CONFIG_MESSAGE_TYPE};
 pub use contract::{

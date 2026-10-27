@@ -3,8 +3,8 @@ use std::collections::{BTreeMap, HashMap};
 use crate::contract::ExtensionTree;
 use crate::errors::{join_path, validation, Result};
 use crate::fields::{
-    assert_leaf, assert_no_datasets, is_label, read_fields, require_child, write_fields, Raw,
-    ReadCtx, Values,
+    assert_leaf, assert_no_datasets, is_label, read_fields, require_child, write_fields, name_key,
+    Raw, ReadCtx, Values,
 };
 use crate::model::{
     AuthMode, CaseSensitivity, ClientConfig, Combinator, ComparisonOperator, Condition, Evaluation,
@@ -13,9 +13,11 @@ use crate::model::{
 };
 use crate::number::{is_numeric_literal, js_number_to_string};
 use crate::schema_v1::{
-    CLIENT_FIELDS, CONDITION_FIELDS, CURRENT_MINOR, CURRENT_SCHEMA_VERSION, PIPE_FIELDS, RULE_FIELDS,
-    SCHEMA_VERSION_ATTR, TRIGGER_FIELDS, VERSION_FIELDS,
+    CLIENT_FIELDS, CONDITION_FIELDS, CURRENT_MINOR, CURRENT_SCHEMA_VERSION, PIPE_FIELDS,
+    RULE_FIELDS, SCHEMA_VERSION_ATTR, TRIGGER_FIELDS, VERSION_FIELDS,
 };
+
+use crate::WarningKind;
 
 const CLIENT: &str = "Client";
 const PIPE: &str = "Pipe";
@@ -180,7 +182,12 @@ fn unpack_pipe(group: &ExtensionTree, ctx: &mut ReadCtx<'_>) -> Result<PipeConfi
     })
 }
 
-fn unpack_condition(label: &str, group: &ExtensionTree, rule_path: &str, ctx: &mut ReadCtx <'_>) -> Result<Condition> {
+fn unpack_condition(
+    label: &str,
+    group: &ExtensionTree,
+    rule_path: &str,
+    ctx: &mut ReadCtx<'_>,
+) -> Result<Condition> {
     let path = join_path(rule_path, label);
     if !is_label(label) {
         return Err(validation(
@@ -205,7 +212,8 @@ fn unpack_condition(label: &str, group: &ExtensionTree, rule_path: &str, ctx: &m
     } else {
         ("Case_Sensitivity", "Exact")
     };
-    if !group.attrs.contains_key(used) {
+    let present = |name: &str| group.attrs.keys().any(|k| name_key(k) == name_key(name));
+    if !present(used) {
         return Err(validation(
             attr_path(&path, used),
             format!("required when Evaluation_Mode is {mode}"),
@@ -213,12 +221,21 @@ fn unpack_condition(label: &str, group: &ExtensionTree, rule_path: &str, ctx: &m
     }
     let used_value = match v.str(used) {
         "" => {
-            ctx.warn(&attr_path(&path, used), format!("blank, read as {default:?}"));
+            ctx.warn(
+                WarningKind::Defaulted,
+                &attr_path(&path, used),
+                format!("blank, read as {default:?}"),
+            );
             default
         }
         s => s,
     };
-    let bad_used = || validation(attr_path(&path, used), format!("invalid value {used_value:?}"));
+    let bad_used = || {
+        validation(
+            attr_path(&path, used),
+            format!("invalid value {used_value:?}"),
+        )
+    };
     let evaluation = if numeric {
         let text = v.str("Value");
         let threshold = if is_numeric_literal(text) {
@@ -293,13 +310,10 @@ fn unpack_rule(label: &str, group: &ExtensionTree, ctx: &mut ReadCtx<'_>) -> Res
     }
     conditions.sort_by_key(|c| c.id);
 
-    if conditions.len() > 1 && !group.attrs.contains_key("Combinator") {
-        return Err(validation(attr_path(&path, "Combinator"), "required when a rule has more than one condition"));
-    }
-
     let combinator = v.str("Combinator");
-     if conditions.len() > 1 {
-        if !group.attrs.contains_key("Combinator") {
+    if conditions.len() > 1 {
+        let present = group.attrs.keys().any(|k| name_key(k) == name_key("Combinator"));
+        if !present {
             return Err(validation(
                 attr_path(&path, "Combinator"),
                 "required when a rule has more than one condition",
@@ -307,8 +321,11 @@ fn unpack_rule(label: &str, group: &ExtensionTree, ctx: &mut ReadCtx<'_>) -> Res
         }
         if combinator.is_empty() {
             ctx.warn(
-                &attr_path(&path, "Combinator"),
-                format!("blank with {} conditions: consumers evaluate only one of them", conditions.len()),
+                WarningKind::Advisory, &attr_path(&path, "Combinator"),
+                format!(
+                    "blank with {} conditions: consumers evaluate only one of them",
+                    conditions.len()
+                ),
             );
         }
     }
@@ -375,18 +392,20 @@ pub(crate) fn unpack_v1(tree: &ExtensionTree, file_minor: u32) -> Result<OpcuaCo
         return Err(validation(name.as_str(), "unexpected child group"));
     }
     let mut warnings = Vec::new();
-    let mut ctx = ReadCtx { file_minor, reader_minor: CURRENT_MINOR, warnings: &mut warnings };
+    let mut ctx = ReadCtx {
+        file_minor,
+        reader_minor: CURRENT_MINOR,
+        warnings: &mut warnings,
+    };
     let (_, extra) = read_fields(&tree.attrs, &[], "", &[SCHEMA_VERSION_ATTR], &mut ctx)?;
     let client = unpack_client(require_child(tree, CLIENT)?, &mut ctx)?;
     let pipe = unpack_pipe(require_child(tree, PIPE)?, &mut ctx)?;
     let triggers = unpack_triggers(require_child(tree, TRIGGER)?, &mut ctx)?;
-    Ok(OpcuaConfig {
-        client,
-        pipe,
-        triggers,
-        extra,
-        warnings: (!warnings.is_empty()).then_some(warnings),
-    })
+    let mut config = OpcuaConfig { client, pipe, triggers, extra, warnings: None };
+    crate::checks::coherence(&config)?;
+    crate::checks::advise(&config, &mut warnings);
+    config.warnings = (!warnings.is_empty()).then_some(warnings);
+    Ok(config)
 }
 
 // ---- pack ----
@@ -629,6 +648,7 @@ fn pack_triggers(t: &TriggerConfig) -> Result<ExtensionTree> {
 /// Packs to schema 1.2: every attribute is written with its exact dtype; rules and conditions are
 /// written in id order (the on-disk order is not significant).
 pub(crate) fn pack_v1(config: &OpcuaConfig) -> Result<ExtensionTree> {
+    crate::checks::coherence(config)?;
     let version: HashMap<&'static str, Raw> =
         HashMap::from([(SCHEMA_VERSION_ATTR, Raw::from(CURRENT_SCHEMA_VERSION))]);
     let attrs = write_fields(version, VERSION_FIELDS, &config.extra, "")?;

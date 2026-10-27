@@ -52,6 +52,37 @@ macro_rules! string_enum {
     };
 }
 
+/// What kind of note a reader produced. Consumers filter and count by kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WarningKind {
+    /// A missing attribute or a blank value was read as its default.
+    Defaulted,
+    /// A value or attribute name was read in a different spelling than the canonical one.
+    Normalized,
+    /// An attribute this reader does not know was kept but not used.
+    UnknownName,
+    /// The legacy layout was converted in a way worth knowing (skipped sides, changed meanings).
+    Conversion,
+    /// Allowed, but weaker than the preferred security or behaviour.
+    Advisory,
+    /// Legal, but very likely a mistake.
+    Suspicious,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Warning {
+    pub kind: WarningKind,
+    /// Slash-joined location; attributes are prefixed with `@`.
+    pub path: String,
+    pub message: String,
+}
+
+impl fmt::Display for Warning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.path, self.message)
+    }
+}
+
 string_enum!(AuthMode {
     Anonymous => "Anonymous",
     UsernamePassword => "UsernamePassword",
@@ -300,5 +331,5 @@ pub struct OpcuaConfig {
     pub extra: ExtraAttrs,
     /// Only set when unpacked from the legacy layout: trigger sides that could not become rules.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub warnings: Option<Vec<String>>,
+    pub warnings: Option<Vec<Warning>>,
 }

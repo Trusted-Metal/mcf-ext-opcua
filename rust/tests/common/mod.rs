@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub mod tree;
+
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};

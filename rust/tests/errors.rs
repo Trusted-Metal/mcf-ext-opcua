@@ -82,7 +82,7 @@ fn bad_enum_values() {
         set(
             v,
             &format!("{PIPE}/User_Access_Level"),
-            utf8("currentuseronly"),
+            utf8("Everyone"),
         )
     });
     check_unpack(Validation, "Client/@Queue_Policy", |v| {
