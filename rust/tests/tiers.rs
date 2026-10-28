@@ -208,14 +208,14 @@ fn blank_action_stays_an_error() {
 }
 
 #[test]
-fn blank_combinator_with_several_conditions_is_advisory() {
+fn blank_combinator_with_several_conditions_is_an_error() {
     let mut t = rich_tree();
     set(&mut t, &JOB_START, "Combinator", utf8(""));
-    let c = unpack_ok(&t);
-    assert!(has(
-        &of_kind(&c.warnings, WarningKind::Advisory),
-        "Trigger/Job Start/@Combinator: blank with 2 conditions"
-    ));
+    expect_err(
+        unpack(&t),
+        ErrorCode::Validation,
+        "Trigger/Job Start/@Combinator",
+    );
 }
 
 // ---- spellings, casing, dtypes ----
@@ -459,3 +459,22 @@ fn to_spec_matches_the_on_disk_encoding() {
 // `group` is re-exported for tests that edit a subtree directly.
 #[allow(unused_imports)]
 use group as _;
+
+#[test]
+fn an_unknown_value_in_a_newer_minor_file_names_the_version_it_needs() {
+    let mut t = rich_tree();
+    t.attrs.insert("Opcua_Schema_Version".into(), utf8("1.7"));
+    set(&mut t, &JOB_START, "Action", utf8("AnnotateEvent"));
+    let e = unpack(&t).unwrap_err();
+    assert_eq!(e.path, "Trigger/Job Start/@Action");
+    assert!(
+        e.message
+            .contains("the file declares schema 1.7, newer than this reader (1.2)"),
+        "{e}"
+    );
+
+    // Same value in a current-minor file is a plain invalid value (most likely a typo).
+    t.attrs.insert("Opcua_Schema_Version".into(), utf8("1.2"));
+    let e = unpack(&t).unwrap_err();
+    assert!(!e.message.contains("newer than this reader"), "{e}");
+}

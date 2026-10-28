@@ -84,6 +84,18 @@ impact is in [CONSUMERS.md](./CONSUMERS.md); remaining work, in order, is in
 7. **Legacy `"None"` is the no-security policy.** Old files are being upgraded.
 8. **The extension owns the `client_config` message**, so the pipe contract is versioned with the
    schema rather than reconstructed in capture.
+9. **Labels must equal their group name** (10-28). The label attribute is required and non-blank;
+   there is no `Rule_{id}` template fallback (supersedes capture's 10-05 hybrid-trigger decision).
+10. **Flags are `u32` `0` / `1`** (10-28). String booleans (`"true"`) are rejected, reversing
+    capture's 09-08 bool-as-string shift: HDF5 has no boolean, each language parses string
+    booleans differently, and canonical digests would hash `"true"` and `"True"` differently.
+11. **All or nothing** (10-28). Any error rejects the whole tree; consumers apply a config fully
+    or disable the subsystem loudly, never partially. Security misconfigurations fail rather than
+    fall back. The unit is the OPC UA subsystem: an invalid `TM_OPCUA` disables OPC UA (pipe,
+    client push, triggers) and the rest of the machine config still loads, as on capture's
+    `feat/hybrid-trigger`; capture `main` #94's whole-load failure is not kept (WORKING_PLAN
+    item 9). Load-time errors added for partial applications consumers would otherwise make: a
+    rule with several conditions and no combinator, and an enabled condition with no signal.
 
 ## Where this departs from DESIGN.md
 

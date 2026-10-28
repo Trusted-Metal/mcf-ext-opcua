@@ -53,6 +53,7 @@
         "enabled": true,
         "priority": 0,
         "cooldownMs": 0,
+        "combinator": "And",
         "conditions": [
           {
             "id": 2,

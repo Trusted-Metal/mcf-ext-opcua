@@ -322,22 +322,14 @@ fn unpack_rule(label: &str, group: &ExtensionTree, ctx: &mut ReadCtx<'_>) -> Res
                 "required when a rule has more than one condition",
             ));
         }
-        if combinator.is_empty() {
-            ctx.warn(
-                WarningKind::Advisory,
-                &attr_path(&path, "Combinator"),
-                format!(
-                    "blank with {} conditions: consumers evaluate only one of them",
-                    conditions.len()
-                ),
-            );
-        }
     }
+
     let max_fires = optional_from_raw(
         v.int("Max_Fires_Per_Job"),
         &attr_path(&path, "Max_Fires_Per_Job"),
         false,
     )?;
+
     Ok(Rule {
         id: v.u32("Rule_Id"),
         label: label.to_string(),

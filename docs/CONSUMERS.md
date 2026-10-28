@@ -14,6 +14,37 @@ group to client-proj over the pipe.
 | [rdt-core](#rdt-core) | Import/export of machine configs | Not migrated (DESIGN.md section 9, step 3) |
 | Node codec | Same model in TypeScript | Not yet at parity with this pass |
 
+## Conventions for every consumer
+
+These apply to any host that reads, edits or forwards `TM_OPCUA` (capture, rdt-core, editors,
+future UIs).
+
+- **All or nothing.** Apply a config completely or not at all. If `unpack` fails, disable the
+  subsystem the config drives (for capture: OPC UA - pipe, client push and triggers) with a loud
+  error, and keep everything else running. Never keep the parts that validated, and never
+  silently skip or reinterpret part of a loaded config at runtime (dropping a condition, using
+  one condition of several). Security misconfigurations fail rather than fall back. This governs
+  ingestion (startup, reload, file swap). Layers a consumer builds downstream of the loaded
+  config by design, such as capture's trigger runtime overrides, are outside it: they may patch
+  any subset of the loaded values (see [Capture](#capture)).
+- **Pack only what was edited.** `pack` writes the canonical form: canonical spellings, every
+  field, canonical dtypes, shortest number text, the 1.2 layout. MCF's `configuration_hash` covers
+  each extension's exact bytes, so re-packing a tree that was not already canonical changes the
+  hash even when nothing meaningful changed. Pass the original tree through untouched unless the
+  user edited the OPC UA section; a canonical tree packs back byte-for-byte, so the change happens
+  at most once per file.
+- **Upgrades are deliberate.** Converting a legacy file (or a non-canonical 1.x file) to canonical
+  1.2 is a real change: expect a new hash, and record it as an upgrade, not an edit.
+- **Newer files fail loudly.** An enum value this reader does not know, in a file declaring a newer
+  schema minor, is an error naming the version the file needs. Update the codec and consumer
+  together; never disable just the unknown rule.
+- **UIs abstract the representation.** Developers integrating directly work with the on-disk
+  forms (`u32` flags, PascalCase values, blanks, `0` / `-1` sentinels). Editors for
+  non-developers show flags as toggles, enums as selection menus and sentinels as named choices
+  ("No limit", "Server decides"), limit free text to genuinely free-text fields, and show codec
+  warnings and errors next to the field. Usability is solved in the UI, not by loosening the
+  codec.
+
 ## MCL core
 
 - Core reads every group under `Extensions/` into `MachineConfig.extensions` and writes each one
@@ -89,6 +120,10 @@ writing rules:
 - `Max_Fires_Per_Job` absent and `Trigger_Stop_Ceiling_Layers` absent map to the engine's `0`
   ("unlimited" / "none").
 - Runtime overrides from the UI use the same value names and are merged by rule and condition id.
+  They are sparse patches over the loaded config (one condition's setting up to every setting),
+  modification-only (no new rule or condition ids), local to capture (never written to the file,
+  so the config's provenance and hash are unchanged), and reset whenever a config is loaded.
+  Anything not overridden keeps the file's value.
   The override UI also offers `NotEqual`, which files can now express too.
 
 ## client-proj

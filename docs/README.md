@@ -35,6 +35,12 @@ this document and Node disagree, this document describes the Rust behaviour Node
    policy) is an error on read and on pack. Legal but unlikely values are reported as Suspicious.
 5. **Accept what consumers accept.** Spellings client-proj and older tools already understand
    are read as the canonical value, with a warning, so files and pipe messages agree.
+6. **All or nothing.** `unpack` returns one result for the whole `TM_OPCUA` tree: any error
+   rejects all of it, and warnings never block. A consumer applies a config completely or
+   disables the subsystem with a loud error; it never keeps the parts that validated and runs a
+   partial configuration. Security misconfigurations fail loudly rather than falling back, even if
+   that stops the consumer. Checks that a consumer would otherwise apply by silently skipping part
+   of a rule belong at load time, as errors.
 
 ## Conventions
 
@@ -46,7 +52,8 @@ this document and Node disagree, this document describes the Rust behaviour Node
   Consumers matching raw strings normalise to lowercase before comparing.
 - **Attribute names** are matched exactly first, then ignoring case and separators
   (`cooldown_period`, `CooldownPeriod`), with a warning.
-- **Flags** are `u32` `0` / `1`. **Sentinels** are explicit: `0` = none / unlimited where a field
+- **Flags** are `u32` `0` / `1`, never `"true"` / `"false"` strings: HDF5 has no boolean type,
+  and string booleans parse differently across languages (REVIEW_NOTES decision 10). **Sentinels** are explicit: `0` = none / unlimited where a field
   says so; `-1` only where documented (`Sampling_Interval`, `Inbound_Rate_Limit`).
 - **Priority:** lower value wins, `0` is the highest precedence.
 
@@ -100,7 +107,7 @@ that is missing but has a near-miss spelling present names it: `missing required
 
 | Meaning | Fields | Result |
 | --- | --- | --- |
-| A value in its own right | `Security_Policy` (Auto), `Root_Node` (auto-discover), `Machine_Profile` (none), `Combinator` (none), `Signal`, `Value`, `Description`, `Event` / `Subsystem` / `Component` | Accepted, no warning (checks may still report it) |
+| A value in its own right | `Security_Policy` (Auto), `Root_Node` (auto-discover), `Machine_Profile` (none), `Combinator` (none), `Signal`, (disabled conditions only) `Value`, `Description`, `Event` / `Subsystem` / `Component` | Accepted, no warning (checks may still report it) |
 | Use the default | `Security_Mode`, `User_Access_Level`, `Min_Integrity_Level` (strictest), `Queue_Policy`, `Evaluation_Mode`, the mode-used comparison field | Default, `Defaulted` warning |
 | Not used by this mode | The comparison field the condition's mode ignores | Accepted, no warning |
 | No safe default | `Auth_Mode`, `Server_URL`, `Pipe_Name`, `Action`, labels, `@Opcua_Schema_Version` | Error (`must not be blank`) |
@@ -163,12 +170,16 @@ cannot be written.
 | `Sign` / `SignAndEncrypt` | `None` | Error at `Client/@Security_Policy` |
 | `Sign` / `SignAndEncrypt` | any real policy | OK |
 
+Also errors, on read and on pack, because consumers could only apply them partially:
+
+- A rule with more than one condition and no `Combinator` (missing or blank).
+- An enabled condition with a blank `Signal`.
+
 ### Advisory
 
 `Security_Mode None`; `User_Access_Level` `AnyLocalUser` or `Unrestricted`; `Min_Integrity_Level`
 `Untrusted` or `Low`; `Max_Inbound_Message_Size 0`; triggers enabled with an enabled Start rule
-but no enabled Stop rule and no `Trigger_Stop_Ceiling_Layers`; a blank `Combinator` on a rule
-with several conditions.
+but no enabled Stop rule and no `Trigger_Stop_Ceiling_Layers`.
 
 ### Suspicious
 
@@ -176,7 +187,7 @@ with several conditions.
 `Keep_Alive_Count`, `Lifetime_Count`, `BFS_Max_Depth` or `Buffer_Size`; `Lifetime_Count` below
 3 x `Keep_Alive_Count`; a `Server_URL` without an OPC UA scheme (`opc.tcp://`, `opc.https://`,
 `opc.wss://`, `https://`); a `Pipe_Name` over 256 characters; an enabled rule whose conditions are
-all disabled; an empty `Signal`, or an empty String `Value`, on an enabled condition.
+all disabled; an empty String `Value`, on an enabled condition.
 
 ## Labels and ids
 
@@ -253,7 +264,7 @@ Columns:
 | `Action` | utf8 | `action` | error | error | `[CaptureStart / CaptureStop]` | - | What the rule does when it fires |
 | `Rule_Enabled` | u32 flag | `enabled` (`bool`) | error | - | `[0 / 1]` | - | Per-rule switch |
 | `Priority` | u32 | `priority` | error | - | `0`-`u32::MAX` | - | Lower value wins a Start/Stop conflict; `0` is the highest precedence. Required so no rule takes top precedence by omission |
-| `Combinator` | utf8 | `combinator` (`Option`) | default; error with more than one condition | none (Advisory with more than one condition) | `[And / Or]` or blank | blank (none) | How conditions are joined |
+| `Combinator` | utf8 | `combinator` (`Option`) | default; error with more than one condition | none (Error with more than one condition) | `[And / Or]` or blank | blank (none) | How conditions are joined |
 | `Cooldown_Period` | u32 | `cooldown_ms` | default | - | `0`-`u32::MAX` ms | `0` | Minimum time between consecutive fires |
 | `Description` | utf8 | `description` | default | kept | text | blank | Free text |
 | `Max_Fires_Per_Job` | u32 | `max_fires_per_job` (`Option`) | default | - | `0`-`u32::MAX` | `0` | `0`: unlimited (read as absent) |
@@ -266,7 +277,7 @@ Columns:
 | `Condition_Label` | utf8 | `label` | error | error | text, no `/` or NUL; unique in the rule | - | Must equal the group name |
 | `Condition_Enabled` | u32 flag | `enabled` (`bool`) | error | - | `[0 / 1]` | - | Per-condition switch |
 | `Evaluation_Mode` | utf8 | selects `evaluation` | error | default | `[String / Numeric]` | `String` | How `Value` is compared |
-| `Signal` | utf8 | `signal` | error | kept | text | - | Signal name the condition watches. Empty on an enabled condition is Suspicious (consumers skip it) |
+| `Signal` | utf8 | `signal` | error | kept | text | - | Signal name the condition watches. Must not be blank on an enabled condition (consumers would skip it, changing the rule); blank is allowed on a disabled placeholder only |
 | `Value` | utf8 | `evaluation.value` / `.threshold` | error | kept | String: text. Numeric: a finite number | - | Compared text, or numeric threshold. Empty String value on an enabled condition is Suspicious |
 | `Event` / `Subsystem` / `Component` | utf8 | `event` / `subsystem` / `component` | default | kept | text | blank | Narrow which signal source matches; empty = any |
 | `Case_Sensitivity` | utf8 | `evaluation.case_sensitivity` (String) | String: error. Numeric: default | String: default. Numeric: ignored | `[Exact / Contains / ExactCaseSensitive / ContainsCaseSensitive]` | `Exact` | String-mode match rule |

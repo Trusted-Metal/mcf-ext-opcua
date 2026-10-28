@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::contract::{Attr, Dtype, ExtensionTree, Scalar, Value};
-use crate::errors::{join_path, validation, Result};
+use crate::errors::{join_path, validation, ExtensionError, Result};
 use crate::model::{ExtraAttrs, Warning, WarningKind};
 
 // ---- attribute-name suggestions ("did you mean") ----
@@ -417,6 +417,18 @@ pub(crate) struct ReadCtx<'a> {
 }
 
 impl ReadCtx<'_> {
+    /// An unknown enum value in a file declaring a newer minor is most likely a feature this
+    /// reader predates (e.g. a new rule Action): say which version the file needs.
+    pub fn newer_file_hint(&self, mut e: ExtensionError) -> ExtensionError {
+        if self.file_minor > self.reader_minor && e.message.starts_with("invalid value") {
+            e.message = format!(
+                "{} - the file declares schema 1.{}, newer than this reader (1.{}); \
+                 update mcf-ext-opcua and its consumer",
+                e.message, self.file_minor, self.reader_minor
+            );
+        }
+        e
+    }
     pub fn warn(&mut self, kind: WarningKind, at: &str, message: impl std::fmt::Display) {
         self.warnings.push(Warning {
             kind,
@@ -582,10 +594,10 @@ pub(crate) fn read_fields(
                             );
                             check_value(f, r, path)? // range, flag and nonzero checks still apply
                         }
-                        None => attr_to_raw(f, a, path)?, // unchanged error for strings, arrays, etc.
+                        None => attr_to_raw(f, a, path).map_err(|e| ctx.newer_file_hint(e))?, // unchanged error for strings, arrays, etc.
                     }
                 } else {
-                    attr_to_raw(f, a, path)?
+                    attr_to_raw(f, a, path).map_err(|e| ctx.newer_file_hint(e))?
                 };
                 if let (Value::Scalar(Scalar::Utf8(before)), Raw::Str(after)) = (&a.value, &raw) {
                     if let Some((kind, note)) = change_note(before, after) {

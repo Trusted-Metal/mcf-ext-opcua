@@ -198,18 +198,47 @@ fn an_enabled_rule_with_every_condition_disabled_is_suspicious() {
 }
 
 #[test]
-fn empty_signal_and_value_on_an_enabled_condition_are_suspicious() {
+fn empty_signal_on_an_enabled_condition_is_an_error() {
     let mut t = rich_tree();
     set(&mut t, &LASER_ON, "Signal", utf8(""));
-    set(&mut t, &LASER_ON, "Value", utf8(""));
-    let s = suspicious(&t);
-    assert!(
-        has(&s, "Trigger/Job Start/Laser On/@Signal: empty"),
-        "{s:#?}"
+    expect_err(
+        unpack(&t),
+        ErrorCode::Validation,
+        "Trigger/Job Start/Laser On/@Signal",
     );
-    assert!(
-        has(&s, "Trigger/Job Start/Laser On/@Value: empty"),
-        "{s:#?}"
+}
+
+#[test]
+fn empty_signal_on_a_disabled_condition_is_allowed() {
+    // Oxygen High is disabled in rich: a placeholder without a signal is fine.
+    let mut t = rich_tree();
+    set(
+        &mut t,
+        &["Trigger", "Job Start", "Oxygen High"],
+        "Signal",
+        utf8(""),
+    );
+    unpack_ok(&t);
+}
+
+#[test]
+fn empty_string_value_on_an_enabled_condition_is_suspicious() {
+    let mut t = rich_tree();
+    set(&mut t, &LASER_ON, "Value", utf8(""));
+    assert!(has(
+        &suspicious(&t),
+        "Trigger/Job Start/Laser On/@Value: empty"
+    ));
+}
+
+#[test]
+fn pack_refuses_a_multi_condition_rule_without_a_combinator() {
+    let mut c = rich_model();
+    c.triggers.rules[0].combinator = None; // Job Start has two conditions
+    let e = pack(&c, &PackOptions::default()).unwrap_err();
+    assert_eq!(
+        (e.code, e.path.as_str()),
+        (ErrorCode::Validation, "Trigger/Job Start/@Combinator")
     );
 }
 

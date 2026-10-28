@@ -25,8 +25,48 @@ fn pipe_at(name: &str) -> String {
     format!("Pipe/@{name}")
 }
 
-/// OPC UA pairs security mode None with policy None (blank/Auto lets the SDK choose either way).
+/// Rules every consumer needs to apply a config completely; run on read and on pack.
 pub(crate) fn coherence(c: &OpcuaConfig) -> Result<()> {
+    security_pairing(c)?;
+    multi_condition_rules_have_a_combinator(c)?;
+    enabled_conditions_have_signals(c)
+}
+
+/// A rule with several conditions says how to join them. Without one, consumers evaluate a single
+/// condition and drop the rest: a partial application.
+fn multi_condition_rules_have_a_combinator(c: &OpcuaConfig) -> Result<()> {
+    for r in &c.triggers.rules {
+        if r.conditions.len() > 1 && r.combinator.is_none() {
+            return Err(validation(
+                format!("Trigger/{}/@Combinator", r.label),
+                format!(
+                    "blank with {} conditions: must be And or Or",
+                    r.conditions.len()
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Every enabled condition names a signal. Consumers skip a condition without one, which would
+/// silently change its rule's meaning (an And rule losing a term): a partial application.
+fn enabled_conditions_have_signals(c: &OpcuaConfig) -> Result<()> {
+    for r in &c.triggers.rules {
+        for cond in r.conditions.iter().filter(|cond| cond.enabled) {
+            if cond.signal.trim().is_empty() {
+                return Err(validation(
+                    format!("Trigger/{}/{}/@Signal", r.label, cond.label),
+                    "blank on an enabled condition: consumers would skip it and change the rule's meaning",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// OPC UA pairs security mode None with policy None (blank/Auto lets the SDK choose either way).
+fn security_pairing(c: &OpcuaConfig) -> Result<()> {
     use SecurityMode as M;
     use SecurityPolicy as P;
     match (c.client.security_mode, c.client.security_policy) {
@@ -170,13 +210,6 @@ pub(crate) fn advise(c: &OpcuaConfig, out: &mut Vec<Warning>) {
         }
         for c in r.conditions.iter().filter(|c| c.enabled) {
             let cond_path = format!("{rule_path}/{}", c.label);
-            if c.signal.trim().is_empty() {
-                note(
-                    WarningKind::Suspicious,
-                    format!("{cond_path}/@Signal"),
-                    "empty: consumers skip this condition".into(),
-                );
-            }
             if let Evaluation::String { value, .. } = &c.evaluation {
                 if value.is_empty() {
                     note(
