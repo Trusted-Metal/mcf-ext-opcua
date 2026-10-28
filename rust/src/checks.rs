@@ -4,7 +4,7 @@
 
 use crate::errors::{validation, Result};
 use crate::model::{
-    Evaluation, MinIntegrityLevel, OpcuaConfig, RuleAction, SecurityMode, SecurityPolicy,
+    AuthMode, Evaluation, MinIntegrityLevel, OpcuaConfig, RuleAction, SecurityMode, SecurityPolicy,
     UserAccessLevel, Warning, WarningKind,
 };
 
@@ -64,6 +64,14 @@ pub(crate) fn advise(c: &OpcuaConfig, out: &mut Vec<Warning>) {
             AT_SECURITY_MODE.into(),
             "None: OPC UA messages are not signed or encrypted".into(),
         );
+        if cl.auth_mode == AuthMode::UsernamePassword {
+            note(
+                WarningKind::Advisory,
+                client_at("Auth_Mode"),
+                "UsernamePassword over Security_Mode None: the password may be sent unencrypted"
+                    .into(),
+            );
+        }
     }
     if matches!(
         p.user_access_level,

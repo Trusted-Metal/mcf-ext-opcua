@@ -521,7 +521,7 @@ fn pack_condition(c: &Condition, rule_path: &str) -> Result<ExtensionTree> {
             (
                 "Numeric",
                 js_number_to_string(*threshold),
-                "Exact",
+                "",
                 operator.as_str(),
                 *epsilon,
             )
@@ -529,13 +529,7 @@ fn pack_condition(c: &Condition, rule_path: &str) -> Result<ExtensionTree> {
         Evaluation::String {
             value,
             case_sensitivity,
-        } => (
-            "String",
-            value.clone(),
-            case_sensitivity.as_str(),
-            "Equal",
-            0.0,
-        ),
+        } => ("String", value.clone(), case_sensitivity.as_str(), "", 0.0),
     };
     let values: HashMap<&'static str, Raw> = HashMap::from([
         ("Condition_Id", Raw::from(c.id)),

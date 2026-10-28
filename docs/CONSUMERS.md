@@ -9,7 +9,7 @@ group to client-proj over the pipe.
 | Consumer | Uses | Status |
 | --- | --- | --- |
 | [MCL core](#mcl-core) | Carries `TM_OPCUA` as an opaque extension tree | Contract shipped (0.2.0-rc.9); no facade getter yet |
-| [capture](#capture) | Full model: pipe, client push, trigger engine | Ported on `feat/hybrid-trigger`; load-tested with all datastream profiles |
+| [capture](#capture) | Full model: pipe, client push, trigger engine | Ported on `feat/hybrid-trigger`; load-tested with a set of config fixtures and live-test profiles from aconity-datastream |
 | [client-proj](#client-proj) | The Client group, received from capture as JSON | No change needed; contract documented below |
 | [rdt-core](#rdt-core) | Import/export of machine configs | Not migrated (DESIGN.md section 9, step 3) |
 | Node codec | Same model in TypeScript | Not yet at parity with this pass |
@@ -38,7 +38,12 @@ Capture holds the unpacked model as `LoadedConfig.opcua: Option<OpcuaConfig>`.
 - Invalid `TM_OPCUA` (any unpack error): `opcua = None`, an error log with the code and path, and
   the rest of the machine config (lasers, correction data, build info) still loads. A bad OPC UA
   setting disables OPC UA, not capture.
-- Codec warnings are logged one per line as `TM_OPCUA: <path>: <message>`.
+- Codec warnings are logged one per line as `TM_OPCUA: <path>: <message>`. Planned: log level
+  by kind (Advisory / Suspicious at warn, the rest at info), later surfaced in the UI.
+- Capture `main` (PR #94, 2026-10-26) parses once with `parse_with_binary()` and converts to the
+  old DTO in `machine_config/opcua.rs`, failing the whole config load on a malformed OPC UA
+  section. `feat/hybrid-trigger` will keep that structure but return `OpcuaConfig` and keep the
+  "disable OPC UA, load the rest" behaviour, pending agreement (WORKING_PLAN items 7-9).
 - Rules are ordered by priority (lower first), then id. (Decided 2026-10-26; capture's reader sort
   is being switched from its earlier highest-first order, see REVIEW_NOTES.)
 
@@ -55,7 +60,10 @@ Capture holds the unpacked model as `LoadedConfig.opcua: Option<OpcuaConfig>`.
 
 **Client push (`client_config` message)**: when `Pipe_Enabled` and `Configure_Client` are both
 set, capture sends the Client group to client-proj, using the on-disk encodings (the contract
-client-proj parses), not the model's own JSON form:
+client-proj parses), not the model's own JSON form. The codec builds it:
+`ClientConfig::to_message()` returns a `ClientConfigMessage` with `type: "client_config"` and a
+`schema` field; the JSON schema is `schema/messages/client_config.schema.json`. Capture still
+builds the payload inline and switches to `to_message()` in WORKING_PLAN item 11.
 
 | Key | Sent as |
 | --- | --- |

@@ -68,7 +68,7 @@
             "Laser On": {
               "attrs": {
                 "Case_Sensitivity": { "dtype": "utf8", "value": "ContainsCaseSensitive" },
-                "Comparison_Operator": { "dtype": "utf8", "value": "Equal" },
+                "Comparison_Operator": { "dtype": "utf8", "value": "" },
                 "Component": { "dtype": "utf8", "value": "laser::1" },
                 "Condition_Enabled": { "dtype": "u32", "value": 1 },
                 "Condition_Id": { "dtype": "u32", "value": 1 },
@@ -85,7 +85,7 @@
             },
             "Oxygen High": {
               "attrs": {
-                "Case_Sensitivity": { "dtype": "utf8", "value": "Exact" },
+                "Case_Sensitivity": { "dtype": "utf8", "value": "" },
                 "Comparison_Operator": { "dtype": "utf8", "value": "GreaterThan" },
                 "Component": { "dtype": "utf8", "value": "" },
                 "Cond_Extra": { "dtype": "u64", "value": "18446744073709551615" },
@@ -121,7 +121,7 @@
             "Laser Off": {
               "attrs": {
                 "Case_Sensitivity": { "dtype": "utf8", "value": "Exact" },
-                "Comparison_Operator": { "dtype": "utf8", "value": "Equal" },
+                "Comparison_Operator": { "dtype": "utf8", "value": "" },
                 "Component": { "dtype": "utf8", "value": "" },
                 "Condition_Enabled": { "dtype": "u32", "value": 1 },
                 "Condition_Id": { "dtype": "u32", "value": 1 },

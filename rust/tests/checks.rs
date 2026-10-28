@@ -82,6 +82,20 @@ fn no_security_is_coherent_but_advisory() {
 }
 
 #[test]
+fn a_password_without_message_security_is_advisory() {
+    let mut t = rich_tree();
+    set(&mut t, &["Client"], "Security_Mode", utf8("None"));
+    set(&mut t, &["Client"], "Security_Policy", utf8("None"));
+    assert!(has(
+        &advisories(&t),
+        "Client/@Auth_Mode: UsernamePassword over Security_Mode None"
+    ));
+
+    set(&mut t, &["Client"], "Auth_Mode", utf8("Anonymous"));
+    assert!(!has(&advisories(&t), "Client/@Auth_Mode"));
+}
+
+#[test]
 fn pack_refuses_an_incoherent_model() {
     let mut c = rich_model();
     c.client.security_mode = SecurityMode::None;

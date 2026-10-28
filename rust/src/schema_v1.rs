@@ -170,7 +170,11 @@ pub(crate) static CLIENT_FIELDS: &[FieldSpec] = &[
 pub(crate) static PIPE_FIELDS: &[FieldSpec] = &[
     FieldSpec::opt("Buffer_Size", T::U32, int(base::BUFFER_SIZE)),
     FieldSpec::opt("Configure_Client", T::U32, D::Int(0)).as_flag(),
-    FieldSpec::opt("Inbound_Rate_Limit", T::I32, int(base::INBOUND_RATE_LIMIT_HZ)),
+    FieldSpec::opt(
+        "Inbound_Rate_Limit",
+        T::I32,
+        int(base::INBOUND_RATE_LIMIT_HZ),
+    ),
     FieldSpec::opt(
         "Max_Inbound_Message_Size",
         T::U32,

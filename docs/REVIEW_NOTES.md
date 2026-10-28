@@ -1,129 +1,138 @@
 # Review notes: capture-compatibility pass
 
-State of `feat/capture-compatibility` (Rust codec) as of 2026-10-26, for review before the Node
-port, docs and merge. Field-level detail is in [README.md](./README.md); consumer impact is in
-[CONSUMERS.md](./CONSUMERS.md).
+State of `feat/capture-compatibility` (Rust codec) as of 2026-10-27 (preliminary), for review
+before the Node port, docs and merge. Field-level detail is in [README.md](./README.md); consumer
+impact is in [CONSUMERS.md](./CONSUMERS.md); remaining work, in order, is in
+[WORKING_PLAN.md](./WORKING_PLAN.md).
 
 ## What changed from 1.0.0-rc.2
 
 ### Read rules
 
-- **Tiered presence.** Missing structural, security/connection and matching fields are errors;
-  other missing fields read as their default with a warning (README, How values are read).
-  `Evaluation_Mode` and `Priority` became required. The comparison field a condition's mode uses
-  is required, and `Combinator` is required on rules with more than one condition.
-- **Blanks accepted.** A blank is either a value in its own right (Auto policy, auto-discover root,
-  no profile, no combinator), a request for the default (strictest for security fields, with a
-  warning), or the normal form of a mode-unused field. Blank `Action` stays an error.
+- **Tiered presence.** Missing security/connection fields, structural trigger fields and the
+  mode-used comparison field are errors. Every other missing field (Client and Pipe tuning,
+  `Machine_Profile`, `Root_Node`, `Trigger_Stop_Ceiling_Layers`, optional rule/condition fields)
+  reads as its default with a `Defaulted` warning. `Evaluation_Mode` and `Priority` became
+  required; `Combinator` is required on rules with more than one condition.
+- **Blanks.** A blank is a value in its own right (Auto policy, auto-discover root, no profile, no
+  combinator, free text), a request for the default (strictest for security fields, with a
+  warning), or the normal form of a mode-unused field. Where no value is safe to assume, a blank
+  is an error: `Auth_Mode`, `Server_URL`, `Pipe_Name`, `Action`, labels.
 - **Required fields are version-scoped.** A field introduced after the file's declared minor is
-  never required, so older-minor files stay valid as the schema grows.
-- **Spellings consumers accept are normalised, with a warning**: `Auth_Mode` aliases,
+  never required.
+- **Spellings consumers accept are normalized, with a warning**: `Auth_Mode` aliases,
   `Security_Policy` short names and URIs, `Queue_Policy` `DropOldest`, hex integrity levels.
-  Casing-only changes stay silent; `User_Access_Level` casing stays strict.
-- **Unknown attribute names** are warned (with did-you-mean suggestions) instead of being kept
-  silently; unknown names in newer-minor files are not warned.
+- **Casing.** Every enum, including `User_Access_Level`, reads in any casing with a "(casing)"
+  warning. (Reverses the earlier strict `User_Access_Level` decision.)
+- **Attribute names.** Case/separator variants are read as the field with a warning; a variant
+  next to the canonical name is reported as a duplicate; unknown names get a did-you-mean when one
+  field is uniquely closest within a length-scaled edit budget; a missing required field names a
+  near miss (`found X`). Unknown names in newer-minor files are not reported.
+- **Dtypes.** Integer fields accept any integral dtype and `f64` accepts `f32` on 1.x reads, with a
+  warning; ranges are still checked.
 - **Negative `Epsilon` is rejected.**
+
+### Checks (new, `src/checks.rs`)
+
+- **Coherence errors**, on read and on pack: `Security_Mode None` with a real policy;
+  `Sign` / `SignAndEncrypt` with policy `None`.
+- **Advisory**: weaker-than-preferred choices (mode `None`, open pipe access, low integrity, no
+  message size limit, Start rules with no way to stop, blank `Combinator` with several conditions).
+- **Suspicious**: legal but likely mistakes (zero intervals and sizes, short lifetime, non-OPC UA
+  URL, long pipe name, rules that can never fire, empty signal or value).
 
 ### Values (full range)
 
 - `Security_Policy` adds `None`, `Aes128_Sha256_RsaOaep` and `Aes256_Sha256_RsaPss`.
 - `Comparison_Operator` adds `NotEqual`.
-- `Max_Inbound_Message_Size = 0` is documented as "no size limit".
+- `Max_Inbound_Message_Size = 0` is documented as "no size limit" (Advisory).
 
 ### Legacy adapter
 
-- `Security_Policy "None"` reads as the no-security policy (with a warning) instead of Auto.
-- The vocabulary mapping (hex levels, `DropOldest`) moved into the shared normalisers and is
-  translated silently.
-- Unknown attributes are warned.
+- `Security_Policy "None"` reads as the no-security policy (`Conversion` warning) instead of Auto.
+- The coherence check applies: mode `None` with a real policy now fails.
+- The vocabulary mapping (hex levels, `DropOldest`) uses the shared normalizers, silently.
+- Unknown attributes are reported.
 
 ### API
 
-- `OpcuaConfig.warnings` is now filled for 1.x files too (absent when there is nothing to report).
+- `OpcuaConfig.warnings: Option<Vec<Warning>>` with `Warning { kind, path, message }` and
+  `WarningKind [Defaulted / Normalized / UnknownName / Conversion / Advisory / Suspicious]`.
+  Filled for 1.x files too (absent when empty); legacy files always carry the list.
 - `RootNode::to_spec`, `SamplingInterval::to_spec` and `SecurityPolicy::to_spec` return the on-disk
-  encoding, for consumers that forward config (capture -> client-proj).
+  encoding.
+- `ClientConfig::to_message() -> ClientConfigMessage`: the `client_config` pipe message in the
+  on-disk encoding, with a `schema` field; JSON schema in `schema/messages/`, shared fixtures in
+  `fixtures/messages/client_config/`.
+- `suggested_defaults()` suggests `SignAndEncrypt`, policy Auto and `Certificate` auth.
 
-## Design decisions behind the changes (all 2026-10-22 to 2026-10-26)
+## Design decisions behind the changes (2026-10-22 to 2026-10-27)
 
 1. **Strict structure, lenient values.** Writers emit every field; readers reject a missing field
-   only where it changes structure, security or matching, accept blanks everywhere, and warn
-   whenever they default or normalise. This replaces DESIGN.md section 3's blanket "no silent
-   fallbacks" with "no *silent* fallbacks": every fallback is reported.
+   only where it changes structure, security or matching, and report every default and
+   normalization. This replaces DESIGN.md section 3's "no silent fallbacks" with "no *silent*
+   fallbacks". The tiered rule was reconsidered on 10-27 and kept.
 2. **Full range, separate from preferred defaults.** Every option a component supports is
-   accepted. Internal preferences (stricter security, tuned performance) live in defaults or in
-   per-deployment overrides, never in narrowing the accepted values.
-3. **Strictest defaults for security fields.** A blank `Security_Mode`, `User_Access_Level` or
-   `Min_Integrity_Level` reads as `SignAndEncrypt`, `CurrentUserOnly` or `ProtectedProcess`.
-4. **`User_Access_Level` casing stays strict**, by choice, unlike the other enums.
-5. **Priority: lower value wins, 0 is highest.** Priority is required so an omitted value cannot
-   take the highest precedence.
-6. **Legacy `"None"` is the no-security policy.** Old files are being upgraded, so the earlier
-   "None means Auto" reading is not preserved.
+   accepted. Preferences live in defaults or per-deployment overrides; weak choices are Advisory.
+3. **Strictest defaults for security fields.** Blank `Security_Mode`, `User_Access_Level`,
+   `Min_Integrity_Level` read as `SignAndEncrypt`, `CurrentUserOnly`, `ProtectedProcess`. Blank
+   `Auth_Mode` is an error because no identity is safe to assume.
+4. **Contradictions fail, oddities warn.** Only pairings that can never connect are errors.
+5. **Case-insensitive enums everywhere**, with a warning (10-27; supersedes the 10-22 strict
+   `User_Access_Level` exception).
+6. **Priority: lower value wins, 0 is highest**, and Priority is required.
+7. **Legacy `"None"` is the no-security policy.** Old files are being upgraded.
+8. **The extension owns the `client_config` message**, so the pipe contract is versioned with the
+   schema rather than reconstructed in capture.
 
 ## Where this departs from DESIGN.md
 
 | DESIGN.md | Now | Section to update |
 | --- | --- | --- |
 | Status "draft, nothing implemented"; README says package `0.x` | Implemented; package `1.0.0-rc.2` | header, README table |
-| Section 3: "No silent fallbacks"; a missing strict attribute is an error, others take the spec default | Tiered presence; every default and normalisation is warned | 3, 4 |
-| Section 4 table: "required enum: empty or unknown is a validation error" | Blank reads as the default (strictest for security fields) with a warning; unknown is still an error | 4 |
-| Section 4 table: `user_access_level` listed as case-insensitive | Case-sensitive by decision | 4 |
+| Section 3: "No silent fallbacks"; a missing strict attribute is an error, others take the spec default | Tiered presence; every default and normalization is warned | 3, 4 |
+| Section 4 table: "required enum: empty or unknown is a validation error" | Blank reads as the default (strictest for security), is a value, or (Auth_Mode) an error; unknown is still an error | 4 |
+| Section 4: `user_access_level` case-insensitive | Matches again: every enum is case-insensitive, with a warning | 4 (wording) |
 | Section 4: `security_policy` list | Adds `None` and the two Aes policies | 4 |
-| Section 5: legacy maps `"None"` to Auto (implicitly, via the prototype's behaviour) | Legacy `"None"` is the no-security policy | 5 |
+| No cross-field validation | `checks.rs`: coherence errors plus Advisory / Suspicious | new section |
+| Section 5: legacy maps `"None"` to Auto | Legacy `"None"` is the no-security policy | 5 |
 | Section 6: YAML schema and generator | Not built; field tables are hand-written in `schema_v1.rs` and `schema-v1.ts`, guarded by the shared fixtures | 6 |
-| Section 2.4: extension crates depend on `mcf-extension-contract` (core's EXTENSION_CONTRACT.md) vs. section 8: no dependency | The codec declares its own tree types; hosts convert through the contract JSON form | 2.4 / 8 (pick one) |
+| Section 2.4 vs. section 8 on depending on `mcf-extension-contract` | The codec declares its own tree types; hosts convert through the contract JSON form | 2.4 / 8 (pick one) |
 
 ## Open questions and pending work
 
-### Codec (Rust)
+Ordered work is in [WORKING_PLAN.md](./WORKING_PLAN.md). Codec items still open:
 
-- [ ] `pack` writes `"Exact"` / `"Equal"` / `0.0` in the mode-unused comparison fields; the agreed
-  convention is blank. Changing it regenerates `fixtures/v1_2/rich/tree.json`.
-- [ ] Rename `SamplingInterval::ServerNegotiated`. `-1` means "inherit the subscription's publishing
-  interval" (client-proj's definition), not "server-negotiated". The variant name is in
-  `lenient_read`'s `model.json`.
-- [ ] `suggested_defaults` still suggests `Security_Mode None`; the strict-defaults rule suggests
-  `SignAndEncrypt`.
-- [ ] Duplicate `.one_of(SECURITY_MODES)` on `Security_Mode` in `schema_v1.rs` (harmless; remove).
-- [ ] Optional: accept any integral dtype on 1.x reads (the legacy reader already does); default an
-  empty label attribute to its group name; make legacy rule ids independent of label order.
-- [ ] Add the datastream profiles as fixtures (`fixtures/datastream/<profile>/` with expected
-  results) so real writer output is regression-tested.
-
-### Node
-
-- [ ] Port this pass: presence tiers, blank handling, normalisers, new values, 1.x warnings,
-  legacy `"None"`, `to_spec`. Bring the shared fixtures back to one set both codecs pass.
-
-### Consumers
-
-- [ ] Capture: switch the reader's rule sort to lower-priority-first; replace the inline
-  `client_config` JSON with a typed message struct; surface the load error in the UI; frontend
-  and test updates; Linux `pipe-uds` build check.
-- [ ] MCL: facade `get_extension` / `set_extension` so hosts drop the second parse.
-- [ ] client-proj: offer every security mode and policy and keep preference as an order, rather
-  than excluding no-security endpoints (full-range rule).
-- [ ] Upgrade remaining legacy files to 1.2, setting `Security_Policy ""` where `"None"` meant "no
-  preference".
+- [x] `pack` writes `"Exact"` / `"Equal"` / `0.0` in mode-unused comparison fields; the convention
+  is blank.
+- [ ] Rename `SamplingInterval::ServerNegotiated` (`-1` = inherit the subscription's publishing
+  interval).
+- [ ] Datastream profiles as fixtures (`fixtures/datastream/<profile>/`).
+- [x] `suggested_defaults` security posture (now `SignAndEncrypt` / Auto / `Certificate`).
+- [x] Duplicate `.one_of(SECURITY_MODES)` on `Security_Mode`.
+- [x] Integral dtype widening on 1.x reads.
+- [x] `schema_v1.rs`: duplicate `Max_Inbound_Message_Size` entry removed; `Publish_Interval`
+  default corrected to `250`.
+- [x] Shared default constants (`defaults::base`) used by `schema_v1.rs` and `suggested_defaults`,
+  with a unique-names unit test and a missing/blank-reads-as-suggested parity test.
 
 ## Test coverage
 
-**Rust suite**: all passing. `tests/tiers.rs` (new, 18 tests) covers missing versus blank per tier,
-mode-dependent fields, strict defaults, normalisation, `User_Access_Level` casing, the new values,
-negative epsilon, did-you-mean warnings, newer-minor silence and `to_spec`. Existing suites were
-adjusted where the new rules changed expectations:
+**Rust suite**: 114 tests, all passing, clippy and fmt clean (2026-10-27): unit (1), checks
+(14), codec_fixtures (5), contract (8), errors (25), facade (7), fixtures (2), legacy (16),
+messages (1), roundtrip (9), tiers (26). `tests/common/tree.rs` holds the typed tree helpers and warning filters
+shared by `tiers.rs` and `checks.rs`.
 
-- `codec_fixtures` and `roundtrip` compare models without `warnings`.
-- `lenient_read`'s tree gained `Evaluation_Mode`, `Case_Sensitivity` and a blank `Combinator`.
-  These are values the fixture already defaulted, so its model is unchanged.
-- `errors` uses an unrecognised `Queue_Policy` instead of a blank one.
-- `legacy` expects the no-security reading of `"None"`.
+Missing Client/Pipe tuning fields and blank security fields reading as the suggested defaults are
+covered by `facade.rs` (parity test). Not yet covered: blank `Auth_Mode` and plain-text blanks as
+errors, missing `Trigger_Stop_Ceiling_Layers` / `Configure_Client`.
 
-**End to end with real files**: eight profiles written by `aconity-datastream`'s h5 writer onto a
-File_Version 1.1 base. Each was read by core's CLI, unpacked by the codec, and loaded in capture
-(desktop, `opcua-win`):
+**End to end with real files** (2026-10-26, before the tiered-defaults change; re-run pending):
+eight profiles written by `aconity-datastream`'s h5 writer onto a File_Version 1.1 base, read by
+core's CLI, unpacked by the codec and loaded in capture (desktop, `opcua-win`). `demo` has since
+been made coherent (mode `None`, policy `""`) and regenerated.
 
-| Profile | Result |
+| Profile | Result (10-26) |
 | --- | --- |
 | `tm`, `ursa`, `demo`, `full_range`, `pending_full_range` | Loaded, schema 1.2, expected rules, no warnings |
 | `lenient` | Loaded with 7 warnings (3 spellings, 2 strict-default blanks, 2 condition blanks) |

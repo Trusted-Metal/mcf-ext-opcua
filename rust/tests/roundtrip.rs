@@ -215,7 +215,7 @@ fn writes_the_documented_dtypes() {
         at(&t, &string, "Epsilon"),
         &attr(Dtype::F64, Scalar::F64(0.0))
     );
-    assert_eq!(at(&t, &string, "Comparison_Operator"), &utf8("Equal"));
+    assert_eq!(at(&t, &string, "Comparison_Operator"), &utf8(""));
 }
 
 #[test]

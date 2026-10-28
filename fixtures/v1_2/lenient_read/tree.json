@@ -1,43 +1,115 @@
 {
-  "attrs": { "Opcua_Schema_Version": { "dtype": "utf8", "value": "1.7" } },
+  "attrs": {
+    "Opcua_Schema_Version": {
+      "dtype": "utf8",
+      "value": "1.7"
+    }
+  },
   "children": {
     "Trigger": {
       "attrs": {
-        "Trigger_Stop_Ceiling_Layers": { "dtype": "u32", "value": 0 },
-        "Triggers_Enabled": { "dtype": "u32", "value": 1 }
+        "Trigger_Stop_Ceiling_Layers": {
+          "dtype": "u32",
+          "value": 0
+        },
+        "Triggers_Enabled": {
+          "dtype": "u32",
+          "value": 1
+        }
       },
       "children": {
         "B second": {
           "attrs": {
-            "Action": { "dtype": "utf8", "value": "CaptureStop" },
-            "Combinator": { "dtype": "utf8", "value": "" },
-            "Rule_Enabled": { "dtype": "u32", "value": 1 },
-            "Rule_Id": { "dtype": "u32", "value": 7 },
-            "Rule_Label": { "dtype": "utf8", "value": "B second" }
+            "Action": {
+              "dtype": "utf8",
+              "value": "CaptureStop"
+            },
+            "Combinator": {
+              "dtype": "utf8",
+              "value": ""
+            },
+            "Rule_Enabled": {
+              "dtype": "u32",
+              "value": 1
+            },
+            "Rule_Id": {
+              "dtype": "u32",
+              "value": 7
+            },
+            "Rule_Label": {
+              "dtype": "utf8",
+              "value": "B second"
+            },
+            "Priority": {
+              "dtype": "u32",
+              "value": 0
+            }
           },
           "children": {
             "Level": {
               "attrs": {
-                "Comparison_Operator": { "dtype": "utf8", "value": "LessThanOrEqual" },
-                "Condition_Enabled": { "dtype": "u32", "value": 1 },
-                "Condition_Id": { "dtype": "u32", "value": 9 },
-                "Condition_Label": { "dtype": "utf8", "value": "Level" },
-                "Evaluation_Mode": { "dtype": "utf8", "value": "Numeric" },
-                "Signal": { "dtype": "utf8", "value": "level" },
-                "Value": { "dtype": "utf8", "value": "1e3" }
+                "Comparison_Operator": {
+                  "dtype": "utf8",
+                  "value": "LessThanOrEqual"
+                },
+                "Condition_Enabled": {
+                  "dtype": "u32",
+                  "value": 1
+                },
+                "Condition_Id": {
+                  "dtype": "u32",
+                  "value": 9
+                },
+                "Condition_Label": {
+                  "dtype": "utf8",
+                  "value": "Level"
+                },
+                "Evaluation_Mode": {
+                  "dtype": "utf8",
+                  "value": "Numeric"
+                },
+                "Signal": {
+                  "dtype": "utf8",
+                  "value": "level"
+                },
+                "Value": {
+                  "dtype": "utf8",
+                  "value": "1e3"
+                }
               },
               "children": {},
               "datasets": {}
             },
             "Status": {
               "attrs": {
-                "Case_Sensitivity": { "dtype": "utf8", "value": "Exact" },
-                "Condition_Enabled": { "dtype": "u32", "value": 0 },
-                "Condition_Id": { "dtype": "u32", "value": 2 },
-                "Condition_Label": { "dtype": "utf8", "value": "Status" },
-                "Evaluation_Mode": { "dtype": "utf8", "value": "String" },
-                "Signal": { "dtype": "utf8", "value": "status" },
-                "Value": { "dtype": "utf8", "value": "ok" }
+                "Case_Sensitivity": {
+                  "dtype": "utf8",
+                  "value": "Exact"
+                },
+                "Condition_Enabled": {
+                  "dtype": "u32",
+                  "value": 0
+                },
+                "Condition_Id": {
+                  "dtype": "u32",
+                  "value": 2
+                },
+                "Condition_Label": {
+                  "dtype": "utf8",
+                  "value": "Status"
+                },
+                "Evaluation_Mode": {
+                  "dtype": "utf8",
+                  "value": "String"
+                },
+                "Signal": {
+                  "dtype": "utf8",
+                  "value": "status"
+                },
+                "Value": {
+                  "dtype": "utf8",
+                  "value": "ok"
+                }
               },
               "children": {},
               "datasets": {}
@@ -47,11 +119,30 @@
         },
         "A first": {
           "attrs": {
-            "Action": { "dtype": "utf8", "value": "CaptureStart" },
-            "Combinator": { "dtype": "utf8", "value": "Or" },
-            "Rule_Enabled": { "dtype": "u32", "value": 0 },
-            "Rule_Id": { "dtype": "u32", "value": 3 },
-            "Rule_Label": { "dtype": "utf8", "value": "A first" }
+            "Action": {
+              "dtype": "utf8",
+              "value": "CaptureStart"
+            },
+            "Combinator": {
+              "dtype": "utf8",
+              "value": "Or"
+            },
+            "Rule_Enabled": {
+              "dtype": "u32",
+              "value": 0
+            },
+            "Rule_Id": {
+              "dtype": "u32",
+              "value": 3
+            },
+            "Rule_Label": {
+              "dtype": "utf8",
+              "value": "A first"
+            },
+            "Priority": {
+              "dtype": "u32",
+              "value": 0
+            }
           },
           "children": {},
           "datasets": {}
@@ -61,39 +152,120 @@
     },
     "Pipe": {
       "attrs": {
-        "Buffer_Size": { "dtype": "u32", "value": 65536 },
-        "Configure_Client": { "dtype": "u32", "value": 0 },
-        "Inbound_Rate_Limit": { "dtype": "i32", "value": -1 },
-        "Max_Inbound_Message_Size": { "dtype": "u32", "value": 4096 },
-        "Min_Integrity_Level": { "dtype": "utf8", "value": "high" },
-        "Pipe_Enabled": { "dtype": "u32", "value": 0 },
-        "Pipe_Name": { "dtype": "utf8", "value": "\\\\.\\pipe\\opc_ua_client_pipe" },
-        "User_Access_Level": { "dtype": "utf8", "value": "Unrestricted" }
+        "Buffer_Size": {
+          "dtype": "u32",
+          "value": 65536
+        },
+        "Configure_Client": {
+          "dtype": "u32",
+          "value": 0
+        },
+        "Inbound_Rate_Limit": {
+          "dtype": "i32",
+          "value": -1
+        },
+        "Max_Inbound_Message_Size": {
+          "dtype": "u32",
+          "value": 4096
+        },
+        "Min_Integrity_Level": {
+          "dtype": "utf8",
+          "value": "high"
+        },
+        "Pipe_Enabled": {
+          "dtype": "u32",
+          "value": 0
+        },
+        "Pipe_Name": {
+          "dtype": "utf8",
+          "value": "\\\\.\\pipe\\opc_ua_client_pipe"
+        },
+        "User_Access_Level": {
+          "dtype": "utf8",
+          "value": "Unrestricted"
+        }
       },
       "children": {},
       "datasets": {}
     },
     "Client": {
       "attrs": {
-        "Auth_Mode": { "dtype": "utf8", "value": "Certificate" },
-        "BFS_Max_Depth": { "dtype": "u32", "value": 16 },
-        "Future_Minor_Attr": { "dtype": "u32", "value": 9 },
-        "Keep_Alive_Count": { "dtype": "u32", "value": 240 },
-        "Lifetime_Count": { "dtype": "u32", "value": 2400 },
-        "Machine_Profile": { "dtype": "utf8", "value": "aconity" },
-        "Publish_Interval": { "dtype": "u32", "value": 250 },
-        "Queue_Policy": { "dtype": "utf8", "value": "DiscardOldest" },
-        "Queue_Size_Data_Change": { "dtype": "u32", "value": 50 },
-        "Queue_Size_Events": { "dtype": "u32", "value": 10 },
-        "Reconnect_Interval": { "dtype": "u32", "value": 1000 },
-        "Root_Node": { "dtype": "utf8", "value": "MachineFleet" },
-        "Sampling_Interval": { "dtype": "i32", "value": -1 },
-        "Security_Mode": { "dtype": "utf8", "value": "Sign" },
-        "Security_Policy": { "dtype": "utf8", "value": "Basic256Sha256" },
-        "Server_URL": { "dtype": "utf8", "value": "opc.tcp://host:4840" },
-        "Session_Timeout": { "dtype": "u32", "value": 60000 },
-        "Sync_Loop_Interval_Initial": { "dtype": "u32", "value": 1000 },
-        "Sync_Loop_Interval_Settled": { "dtype": "u32", "value": 30000 }
+        "Auth_Mode": {
+          "dtype": "utf8",
+          "value": "Certificate"
+        },
+        "BFS_Max_Depth": {
+          "dtype": "u32",
+          "value": 16
+        },
+        "Future_Minor_Attr": {
+          "dtype": "u32",
+          "value": 9
+        },
+        "Keep_Alive_Count": {
+          "dtype": "u32",
+          "value": 240
+        },
+        "Lifetime_Count": {
+          "dtype": "u32",
+          "value": 2400
+        },
+        "Machine_Profile": {
+          "dtype": "utf8",
+          "value": "aconity"
+        },
+        "Publish_Interval": {
+          "dtype": "u32",
+          "value": 250
+        },
+        "Queue_Policy": {
+          "dtype": "utf8",
+          "value": "DiscardOldest"
+        },
+        "Queue_Size_Data_Change": {
+          "dtype": "u32",
+          "value": 50
+        },
+        "Queue_Size_Events": {
+          "dtype": "u32",
+          "value": 10
+        },
+        "Reconnect_Interval": {
+          "dtype": "u32",
+          "value": 1000
+        },
+        "Root_Node": {
+          "dtype": "utf8",
+          "value": "MachineFleet"
+        },
+        "Sampling_Interval": {
+          "dtype": "i32",
+          "value": -1
+        },
+        "Security_Mode": {
+          "dtype": "utf8",
+          "value": "Sign"
+        },
+        "Security_Policy": {
+          "dtype": "utf8",
+          "value": "Basic256Sha256"
+        },
+        "Server_URL": {
+          "dtype": "utf8",
+          "value": "opc.tcp://host:4840"
+        },
+        "Session_Timeout": {
+          "dtype": "u32",
+          "value": 60000
+        },
+        "Sync_Loop_Interval_Initial": {
+          "dtype": "u32",
+          "value": 1000
+        },
+        "Sync_Loop_Interval_Settled": {
+          "dtype": "u32",
+          "value": 30000
+        }
       },
       "children": {},
       "datasets": {}

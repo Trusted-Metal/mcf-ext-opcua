@@ -1,33 +1,22 @@
 {
-    "type": "client_config",
-    "schema": "1.2",
-    "auth_mode": "UsernamePassword",
-    "bfs_max_depth": 8,
-    "keep_alive_count": 100,
-    "lifetime_count": 1000,
-    "machine_profile": "Eos",
-    "publish_interval": 500,
-    "queue_policy": "KeepOldest",
-    "queue_size_data_change": 50,
-    "queue_size_events": 7200,
-    "reconnect_interval": 5000,
-    "root_node": {
-        "kind": "NodeId",
-        "value": "ns=2;s=Machine"
-    },
-    "sampling_interval": {
-        "kind": "Fastest"
-    },
-    "security_mode": "SignAndEncrypt",
-    "security_policy": "ECC_nistP256",
-    "server_url": "opc.tcp://10.0.0.5:62541/Server/",
-    "session_timeout": 30000,
-    "sync_loop_interval_initial": 500,
-    "sync_loop_interval_settled": 15000,
-    "extra": {
-        "Client_Extra_I64": {
-            "dtype": "i64",
-            "value": "-42"
-        }
-    }
+  "type": "client_config",
+  "schema": "1.2",
+  "auth_mode": "UsernamePassword",
+  "bfs_max_depth": 8,
+  "keep_alive_count": 100,
+  "lifetime_count": 1000,
+  "machine_profile": "Eos",
+  "publish_interval": 500,
+  "queue_policy": "KeepOldest",
+  "queue_size_data_change": 50,
+  "queue_size_events": 7200,
+  "reconnect_interval": 5000,
+  "root_node": "ns=2;s=Machine",
+  "sampling_interval": 0,
+  "security_mode": "SignAndEncrypt",
+  "security_policy": "ECC_nistP256",
+  "server_url": "opc.tcp://10.0.0.5:62541/Server",
+  "session_timeout": 30000,
+  "sync_loop_interval_initial": 500,
+  "sync_loop_interval_settled": 15000
 }
