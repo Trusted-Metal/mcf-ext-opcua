@@ -5,6 +5,9 @@ on:
   push:
     branches: ["**"]
 
+permissions:
+  contents: read
+
 concurrency:
   group: nodejs-${{ github.ref }}
   cancel-in-progress: true
