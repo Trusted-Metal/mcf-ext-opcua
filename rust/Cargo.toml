@@ -1,6 +1,6 @@
 [package]
 name = "mcf-ext-opcua"
-version = "0.1.0-rc.1"
+version = "1.0.0-rc.2"
 edition = "2021"
 license = "MIT"
 description = "Pack/unpack codec for the OPC UA extension (TM_OPCUA) of a machine configuration file"

@@ -1,0 +1,15 @@
+## 1.0.0-rc.2 (2026-10-21)
+
+* Merge pull request #4 from Trusted-Metal/SD-1737 ([162bfbf](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/162bfbf)), closes [#4](https://github.com/Trusted-Metal/mcf-ext-opcua/issues/4)
+* fix: fix issue with crate not generating in semantic release package ([beb9743](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/beb9743))
+
+## 1.0.0-rc.1 (2026-10-21)
+
+* create opcua extension lib ([3447d4e](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/3447d4e))
+* Merge pull request #1 from Trusted-Metal/SD-1737 ([a9553c1](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/a9553c1)), closes [#1](https://github.com/Trusted-Metal/mcf-ext-opcua/issues/1)
+* Merge pull request #2 from Trusted-Metal/SD-1737 ([ccc891b](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/ccc891b)), closes [#2](https://github.com/Trusted-Metal/mcf-ext-opcua/issues/2)
+* Merge pull request #3 from Trusted-Metal/SD-1737 ([28f7ff9](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/28f7ff9)), closes [#3](https://github.com/Trusted-Metal/mcf-ext-opcua/issues/3)
+* updates to deploy key config ([ecfac68](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/ecfac68))
+* feat: first release ([61c7a02](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/61c7a02))
+* chore: create CI pipeline for opcua lib ([5adb397](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/5adb397))
+* chore: package rust crate ([eb8e110](https://github.com/Trusted-Metal/mcf-ext-opcua/commit/eb8e110))
