@@ -11,6 +11,9 @@ on:
       - "schema/**"
       - ".github/workflows/rust.yml"
 
+permissions:
+  contents: read
+
 concurrency:
   group: rust-${{ github.ref }}
   cancel-in-progress: true
