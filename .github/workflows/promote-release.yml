@@ -1,0 +1,115 @@
+name: Promote RC to release
+
+# Promotes a release candidate (vX.Y.Z-rc.N, published from main) to a stable release by merging it into the
+# release branch, where semantic-release cuts the stable version, then merges the result back into main so the
+# next rc line starts from the stable tag. The merge uses the same deploy key as the Release workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      rc_tag:
+        description: "RC tag to promote (e.g. v1.0.0-rc.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: promote-release
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote ${{ inputs.rc_tag }}
+    runs-on: ubuntu-latest
+    env:
+      RC_TAG: ${{ inputs.rc_tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configure deploy key for git push
+        env:
+          RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+        run: bash .github/scripts/configure-deploy-key-git.sh
+
+      - name: Validate the RC tag
+        run: |
+          set -euo pipefail
+          if [[ ! "$RC_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            echo "::error::Invalid RC tag '$RC_TAG'. Expected vX.Y.Z-rc.N"; exit 1
+          fi
+          git fetch origin main release --tags
+          if ! git rev-parse -q --verify "refs/tags/$RC_TAG" >/dev/null; then
+            echo "::error::RC tag not found: $RC_TAG"; exit 1
+          fi
+          if ! git merge-base --is-ancestor "$RC_TAG" origin/main; then
+            echo "::error::$RC_TAG is not on main"; exit 1
+          fi
+          if git merge-base --is-ancestor "$RC_TAG" origin/release; then
+            echo "::error::$RC_TAG is already on the release branch; nothing to promote"; exit 1
+          fi
+
+      - name: Merge the RC into release
+        id: promote
+        run: |
+          set -euo pipefail
+          # Files semantic-release rewrites on every release; on a conflict the incoming side wins.
+          node -e "const c=require('./.releaserc.json');const g=c.plugins.find(p=>Array.isArray(p)&&p[0]==='@semantic-release/git');console.log((g[1].assets||[]).join('\n'))" > "$RUNNER_TEMP/release-files.txt"
+
+          git checkout -B release origin/release
+          if ! git merge --no-ff -m "chore: promote $RC_TAG to release" "$RC_TAG"; then
+            for f in $(git diff --name-only --diff-filter=U); do
+              if ! grep -qxF "$f" "$RUNNER_TEMP/release-files.txt"; then
+                echo "::error::Merge conflict in $f is not a release file; resolve it by hand"; git merge --abort; exit 1
+              fi
+            done
+            for f in $(git diff --name-only --diff-filter=U); do git checkout --theirs -- "$f"; git add -- "$f"; done
+            git commit --no-edit
+          fi
+          git push origin release
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for the stable release
+        env:
+          SHA: ${{ steps.promote.outputs.sha }}
+        run: |
+          set -euo pipefail
+          RUN_ID=""
+          for _ in $(seq 1 30); do
+            RUN_ID=$(gh run list --workflow release.yml --branch release --commit "$SHA" --json databaseId --jq '.[0].databaseId // empty')
+            [ -n "$RUN_ID" ] && break
+            sleep 10
+          done
+          if [ -z "$RUN_ID" ]; then echo "::error::The Release workflow did not start for $SHA"; exit 1; fi
+          gh run watch "$RUN_ID" --exit-status
+
+      - name: Merge the stable release back into main
+        run: |
+          set -euo pipefail
+          git fetch origin main release --tags
+          STABLE=$(git tag --points-at origin/release | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)
+          if [ -z "$STABLE" ]; then
+            echo "::error::The release branch has no stable tag after the release run (no releasable commits?)"; exit 1
+          fi
+          git checkout -B main origin/main
+          if ! git merge --no-ff -m "chore: sync $STABLE from release [skip ci]" origin/release; then
+            for f in $(git diff --name-only --diff-filter=U); do
+              if ! grep -qxF "$f" "$RUNNER_TEMP/release-files.txt"; then
+                echo "::error::Merge conflict in $f is not a release file; resolve it by hand"; git merge --abort; exit 1
+              fi
+            done
+            for f in $(git diff --name-only --diff-filter=U); do git checkout --theirs -- "$f"; git add -- "$f"; done
+            git commit --no-edit
+          fi
+          git push origin main
+          echo "Promoted $RC_TAG to $STABLE and synced main"
